@@ -111,6 +111,8 @@ public class PlayerController : MonoBehaviour
 
     private void RotateTowardsInputDirection()
     {
+        if (lastMoveInput == Vector2.zero) return;
+        
         Vector3 targetDirection = lastMoveInput.x * camTran.right + lastMoveInput.y * camTran.forward;
         targetDirection.y = 0f;
         Quaternion targetRotation = Quaternion.LookRotation(targetDirection);

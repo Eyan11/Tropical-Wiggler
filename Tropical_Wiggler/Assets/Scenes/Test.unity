@@ -683,7 +683,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 437369406}
+  - component: {fileID: 437369410}
   - component: {fileID: 437369407}
+  - component: {fileID: 437369409}
   - component: {fileID: 437369408}
   m_Layer: 0
   m_Name: Player
@@ -755,6 +757,35 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
+--- !u!114 &437369409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 437369405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae2cbb3d57be8ac4899fc38f1fff4938, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StretchController
+  maxSpeed: 7
+  accelerationForce: 20
+  deaccelerationForce: -15
+  orientationTran: {fileID: 1384842895}
+  rotationSpeed: 100
+--- !u!114 &437369410
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 437369405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8028d5ebfdf56ff4b83e2562985178a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InputManager
 --- !u!1 &645239254
 GameObject:
   m_ObjectHideFlags: 0

@@ -2,76 +2,77 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(InputManager))]
-public class PlayerController : MonoBehaviour
+public class StretchController : MonoBehaviour
 {
     [Header("Player Movement Settings")]
-    [SerializeField] private float maxSpeed = 4f;
-    [SerializeField] private float accelerationForce = 15f;
-    [SerializeField] private float deaccelerationForce = -10f;
+    [SerializeField] private float maxSpeed = 7f;
+    [SerializeField] private float accelerationForce = 20f;
+    [SerializeField] private float deaccelerationForce = -15f;
     [Header("Orientation Settings")]
     [SerializeField] private Transform orientationTran;
-    [SerializeField] private float rotationSpeed = 900;
-    [Tooltip("The angle threshold (in degrees) within which the player must be rotated towards target direction before they can move when they are not already moving.")]
-    [SerializeField] private float canMoveAngleThreshold = 5f;
+    [SerializeField] private float rotationSpeed = 100f;
+    private StretchState currentStretchState = StretchState.Disabled;
     private Transform camTran;
     private Rigidbody body;
     private InputManager input;
-    private bool isMoving = false; // True if facing forward and able to move (lerp towards target rotation is basically done)
     private Vector3 moveDirection = Vector3.zero;
-    private bool isEnabled = true; // False if in stretch mode
+
+    private enum StretchState
+    {
+        Disabled,
+        Stretching,
+        ContractingForward,
+        ContractingBackward,
+    }
 
     private void Awake()
     {
         camTran = Camera.main.transform;
         body = GetComponent<Rigidbody>();
-
         input = GetComponent<InputManager>();
-        input.OnMoveInputCanceled += OnMoveInputCanceled;
         input.OnStretchInputChanged += OnStretchInputChanged;
-    }
-
-    private void OnMoveInputCanceled()
-    {
-        isMoving = false; // Make player rotate towards input direction before allowing movement
     }
 
     private void OnStretchInputChanged(bool isStretching)
     {
-        isEnabled = !isStretching;
-        // Reset move direction to current orientation
-        if (isEnabled) moveDirection = orientationTran.forward;
+        if (isStretching)
+        {
+            currentStretchState = StretchState.Stretching;
+        }
+        else
+        {
+            currentStretchState = StretchState.Disabled; // Temporary
+            // TODO: Set to contracting forward/backward
+        }
     }
+
 
 
     // *** Movement and Rotation ******************************************************************
     
     private void Update()
     {
-        if (!isEnabled) return; // Let StretchController handle stretch rotation
+        if (currentStretchState == StretchState.Disabled) return;
         RotateTowardsInputDirection();
     }
 
     private void FixedUpdate()
     {
-        if (!isEnabled) return; // Let StretchController handle stretch movement
+        if (currentStretchState == StretchState.Disabled) return;
         MovePlayer();
     }
 
     private void RotateTowardsInputDirection()
     {
-        Vector2 lastNonZeroMoveInput = input.GetLastNonZeroMoveInput();
-        if (lastNonZeroMoveInput == Vector2.zero) return;
+        if (input.GetCurMoveInput() == Vector2.zero) return;
 
-        // If player is not moving, use last camera position for move direction
-        if (input.GetCurMoveInput() != Vector2.zero)
-        {
-            Vector3 normalizedCamForward = camTran.forward;
-            normalizedCamForward.y = 0f;
-            normalizedCamForward.Normalize();
-            // Cam.right y value always equals 0 and is already normalized
+        Vector3 normalizedCamForward = camTran.forward;
+        normalizedCamForward.y = 0f;
+        normalizedCamForward.Normalize();
+        // Cam.right y value always equals 0 and is already normalized
 
-            moveDirection = lastNonZeroMoveInput.x * camTran.right + lastNonZeroMoveInput.y * normalizedCamForward;
-        }
+        Vector2 lastMoveInput = input.GetLastNonZeroMoveInput();
+        moveDirection = lastMoveInput.x * camTran.right + lastMoveInput.y * normalizedCamForward;
 
         Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
 
@@ -84,17 +85,11 @@ public class PlayerController : MonoBehaviour
         {
             orientationTran.rotation = targetRotation;
         }
-
-        // Allow movement again when movement input and player orientation are aligned
-        if (!isMoving && input.GetCurMoveInput() != Vector2.zero && rotationDifference < canMoveAngleThreshold)
-        {
-            isMoving = true;
-        }
     }
 
     private void MovePlayer()
     {
-        // Deaccelerate when no input until reaching speed of 0
+        // Deaaccelerate when no input unbtil reaching speed of 0
         if (input.GetCurMoveInput() == Vector2.zero)
         {
             Vector2 deacceleration = deaccelerationForce * Time.fixedDeltaTime * new Vector2(body.linearVelocity.x, body.linearVelocity.z);
@@ -104,7 +99,7 @@ public class PlayerController : MonoBehaviour
                 body.linearVelocity = new Vector3(0f, body.linearVelocity.y, 0f);
         }
         // Accelerate towards move direction which is camera-relative input
-        else if (isMoving)
+        else
         {
             Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * moveDirection;
             body.linearVelocity += acceleration;
@@ -112,5 +107,4 @@ public class PlayerController : MonoBehaviour
 
         body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
     }
-
 }

@@ -20,6 +20,7 @@ public class PlayerController : MonoBehaviour
     private Vector2 curMoveInput = Vector2.zero;
     private Vector2 lastMoveInput = Vector2.zero; // Last non-zero move input for orientation when input is zero
     private bool canMove = false; // True if facing forward and able to move (lerp towards target rotation is basically done)
+    private Vector3 moveDirection = Vector3.zero;
 
     private void Awake()
     {
@@ -68,18 +69,17 @@ public class PlayerController : MonoBehaviour
 
     private void OnMove(InputAction.CallbackContext context)
     {
-        curMoveInput = context.ReadValue<Vector2>();
+        curMoveInput = context.ReadValue<Vector2>(); // Already normalized for KBM
 
         if (context.canceled)
         {
             canMove = false; // Make player rotate towards input direction before allowing movement
             curMoveInput = Vector2.zero;
         }
-        else {
+        else if (curMoveInput != Vector2.zero) { // Controller input can be (0,0) without being "canceled"
             lastMoveInput = curMoveInput;
         }
 
-        curMoveInput.Normalize();
     }
 
 
@@ -97,7 +97,9 @@ public class PlayerController : MonoBehaviour
         // Handle stretching logic here
     }
 
-    // *** Movement *******************************************************************************
+
+
+    // *** Movement and Rotation ******************************************************************
     
     private void Update()
     {
@@ -112,10 +114,19 @@ public class PlayerController : MonoBehaviour
     private void RotateTowardsInputDirection()
     {
         if (lastMoveInput == Vector2.zero) return;
-        
-        Vector3 targetDirection = lastMoveInput.x * camTran.right + lastMoveInput.y * camTran.forward;
-        targetDirection.y = 0f;
-        Quaternion targetRotation = Quaternion.LookRotation(targetDirection);
+
+        // If player is not moving, use last camera position for move direction
+        if (curMoveInput != Vector2.zero)
+        {
+            Vector3 normalizedCamForward = camTran.forward;
+            normalizedCamForward.y = 0f;
+            normalizedCamForward.Normalize();
+            // Cam.right y value always equals 0 and is already normalized
+
+            moveDirection = lastMoveInput.x * camTran.right + lastMoveInput.y * normalizedCamForward;
+        }
+
+        Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
 
         // Rotate at constant speed towards last non-zero movement direction
         transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
@@ -135,6 +146,7 @@ public class PlayerController : MonoBehaviour
 
     private void MovePlayer()
     {
+        // Deaaccelerate when no input unbtil reaching speed of 0
         if (curMoveInput == Vector2.zero)
         {
             Vector2 deacceleration = deaccelerationForce * Time.fixedDeltaTime * new Vector2(body.linearVelocity.x, body.linearVelocity.z);
@@ -143,13 +155,10 @@ public class PlayerController : MonoBehaviour
             if (body.linearVelocity.magnitude < 0.1f)
                 body.linearVelocity = new Vector3(0f, body.linearVelocity.y, 0f);
         }
+        // Accelerate towards move direction which is camera-relative input
         else if (canMove && curMoveInput != Vector2.zero)
         {
-            Vector3 acceleration = curMoveInput.x * camTran.right + curMoveInput.y * camTran.forward;
-            acceleration.y = 0f;
-            acceleration.Normalize();
-
-            acceleration *= accelerationForce * Time.fixedDeltaTime;
+            Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * moveDirection;
             body.linearVelocity += acceleration;
         }
 

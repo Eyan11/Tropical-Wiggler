@@ -4,18 +4,22 @@ using UnityEngine;
 [RequireComponent(typeof(InputManager))]
 public class StretchController : MonoBehaviour
 {
-    [Header("Player Movement Settings")]
+    [Header("Stretch Movement Settings")]
     [SerializeField] private float maxSpeed = 7f;
     [SerializeField] private float accelerationForce = 20f;
     [SerializeField] private float deaccelerationForce = -15f;
-    [Header("Orientation Settings")]
+    [SerializeField] private float maxStretchDistance = 10f;
+    [Header("Stretch Orientation Settings")]
     [SerializeField] private Transform orientationTran;
     [SerializeField] private float rotationSpeed = 100f;
+    [Header("Visuals")]
+    [SerializeField] private Transform backBodyTran;
     private StretchState currentStretchState = StretchState.Disabled;
     private Transform camTran;
     private Rigidbody body;
     private InputManager input;
     private Vector3 moveDirection = Vector3.zero;
+    private Transform backBodyParentTran;
 
     private enum StretchState
     {
@@ -28,6 +32,7 @@ public class StretchController : MonoBehaviour
     private void Awake()
     {
         camTran = Camera.main.transform;
+        backBodyParentTran = backBodyTran.parent;
         body = GetComponent<Rigidbody>();
         input = GetComponent<InputManager>();
         input.OnStretchInputChanged += OnStretchInputChanged;
@@ -37,10 +42,13 @@ public class StretchController : MonoBehaviour
     {
         if (isStretching)
         {
+            backBodyTran.SetParent(null);
             currentStretchState = StretchState.Stretching;
         }
         else
         {
+            backBodyTran.SetParent(backBodyParentTran);
+            backBodyTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             currentStretchState = StretchState.Disabled; // Temporary
             // TODO: Set to contracting forward/backward
         }

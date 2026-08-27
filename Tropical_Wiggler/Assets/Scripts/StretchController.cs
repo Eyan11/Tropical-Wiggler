@@ -8,7 +8,6 @@ public class StretchController : MonoBehaviour
     [SerializeField] private float maxSpeed = 7f;
     [SerializeField] private float accelerationForce = 20f;
     [SerializeField] private float deaccelerationForce = -15f;
-    [SerializeField] private float maxStretchDistance = 10f;
     [Header("Stretch Orientation Settings")]
     [SerializeField] private Transform orientationTran;
     [SerializeField] private float rotationSpeed = 100f;

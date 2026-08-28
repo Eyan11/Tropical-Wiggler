@@ -14,8 +14,12 @@ public class StretchBody : MonoBehaviour
 
     [Header ("Stretch Settings")]
     [SerializeField] private float maxRotation = 30f;
+    [Tooltip("Maximum rotation of body sphere right behind the head")]
+    [SerializeField] private float maxFrontBodyRotation = 90f;
+    [SerializeField] private float flipRotationThreshold = 30f;
     [SerializeField] private float maxDistance = 1.0f;
     [SerializeField] private float rotationSpeed = 5f;
+    [SerializeField] private float bodyMoveSpeed = 5f;
     private bool hasSpawnedAllBodies = false;
     private int numSpawnedBodies = 0;
     private bool isStretching = false;
@@ -87,15 +91,6 @@ public class StretchBody : MonoBehaviour
             // Calculate the target rotation based on the direction to the tail
             Quaternion targetRotation = Quaternion.LookRotation(directionToNextBody);
 
-            // Limit the rotation based on maxRotation
-            float angleDifference = Quaternion.Angle(body.rotation, targetRotation);
-            angleDifference = Mathf.Clamp(angleDifference, -maxRotation, maxRotation);
-            
-            if (angleDifference > maxRotation) 
-            {
-                targetRotation = Quaternion.RotateTowards(body.rotation, targetRotation, maxRotation);
-            }
-
             // Smoothly rotate towards the target rotation
             body.rotation = Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.deltaTime);
         }
@@ -112,6 +107,43 @@ public class StretchBody : MonoBehaviour
             body = bodyTran[i];
             if (i >= 1) nextBody = bodyTran[i - 1];
 
+            SetBodyPosition(body, nextBody);
+        }
+    }
+
+    private void TrySpawnNewBody()
+    {
+        // Get spawned body closest to tail
+        Transform nextBody;
+        if (numSpawnedBodies >= 1) nextBody = bodyTran[numSpawnedBodies - 1];
+        else nextBody = headTran;
+
+        float distance = Vector3.Distance(tailTran.position, nextBody.position);
+        if (distance > maxDistance)
+        {
+            Transform newBody = bodyTran[numSpawnedBodies];
+
+            newBody.position = tailTran.position;
+            newBody.rotation = nextBody.rotation;
+            SetBodyPosition(newBody, nextBody);
+
+            newBody.gameObject.SetActive(true);
+            numSpawnedBodies++;
+
+            if (numSpawnedBodies >= bodyTran.Count)
+            {
+                hasSpawnedAllBodies = true;
+            }
+        }
+    }
+
+    private void SetBodyPosition(Transform body, Transform nextBody)
+    {
+        float angle = Vector3.SignedAngle(body.forward, nextBody.forward, Vector3.up);
+        float maxRot = (nextBody == headTran) ? maxFrontBodyRotation : maxRotation;
+
+        if (Mathf.Abs(angle) < maxRot)
+        {
             // Calculate the direction and distance to the body in front of it
             Vector3 directionToNextBody = nextBody.position - body.position;
             float distanceToNextBody = directionToNextBody.magnitude;
@@ -122,32 +154,29 @@ public class StretchBody : MonoBehaviour
                 body.position += (distanceToNextBody - maxDistance) * directionToNextBody.normalized;
             }
         }
-    }
-
-
-
-    private void TrySpawnNewBody()
-    {
-        // Get body in front of new body
-        Transform nextBody;
-        if (numSpawnedBodies >= 1) nextBody = bodyTran[numSpawnedBodies - 1];
-        else nextBody = headTran;
-
-        Vector3 direction = tailTran.position - nextBody.position;
-        if (direction.magnitude > maxDistance)
+        else
         {
-            Transform newBody = bodyTran[numSpawnedBodies];
+            if (Mathf.Abs(angle) > flipRotationThreshold) angle = Mathf.Sign(angle) * flipRotationThreshold;
+            float clampedAngle = Mathf.Clamp(angle, -maxRot, maxRot);
 
-            // Place new body on line between tail and next body, at max distance from next body
-            newBody.position = direction.normalized * maxDistance + nextBody.position;
+            // Start behind the next body.
+            Vector3 direction = -nextBody.forward;
 
-            newBody.gameObject.SetActive(true);
-            numSpawnedBodies++;
+            // Rotate direction vector by clampedAngle amount around the Y axis
+            direction = Quaternion.AngleAxis(-clampedAngle, Vector3.up) * direction;
+            Vector3 targetPosition = nextBody.position + direction * maxDistance;
+            
+            body.position = Vector3.Lerp(body.position, targetPosition, bodyMoveSpeed * Time.deltaTime);
 
-            if (numSpawnedBodies >= bodyTran.Count)
-            {
-                hasSpawnedAllBodies = true;
-            }
+            /* DEBUG
+            float newAngle = Vector3.SignedAngle(
+                body.forward,
+                nextBody.forward,
+                Vector3.up
+            );
+            Debug.Log("Old Angle: " + angle + ", New Angle: " + newAngle);
+            */
         }
+
     }
 }

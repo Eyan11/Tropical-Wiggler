@@ -1435,11 +1435,12 @@ MonoBehaviour:
   tailTran: {fileID: 194090931}
   headTran: {fileID: 891803600}
   maxRotation: 60
-  maxFrontBodyRotation: 60
   flipRotationThreshold: 80
-  maxDistance: 1
+  maxDistance: 0.9
   rotationSpeed: 9999
-  bodyMoveSpeed: 3
+  bodyMoveSpeed: 50
+  maxStretchDistanceThreshold: 0.15
+  constrainIterations: 3
 --- !u!1 &441401922
 GameObject:
   m_ObjectHideFlags: 0

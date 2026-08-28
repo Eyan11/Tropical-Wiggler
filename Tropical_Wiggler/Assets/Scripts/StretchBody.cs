@@ -14,12 +14,12 @@ public class StretchBody : MonoBehaviour
 
     [Header ("Stretch Settings")]
     [SerializeField] private float maxRotation = 30f;
-    [Tooltip("Maximum rotation of body sphere right behind the head")]
-    [SerializeField] private float maxFrontBodyRotation = 90f;
     [SerializeField] private float flipRotationThreshold = 30f;
     [SerializeField] private float maxDistance = 1.0f;
     [SerializeField] private float rotationSpeed = 5f;
     [SerializeField] private float bodyMoveSpeed = 5f;
+    [SerializeField] private float maxStretchDistanceThreshold = 0.15f;
+    [SerializeField] private int constrainIterations = 3;
     private bool hasSpawnedAllBodies = false;
     private int numSpawnedBodies = 0;
     private bool isStretching = false;
@@ -69,46 +69,10 @@ public class StretchBody : MonoBehaviour
 
         if (!hasSpawnedAllBodies)
         {
-            MoveBodyPositionsWhileGrowing();
             TrySpawnNewBody();
         }
+        MoveBodyPositions();
         RotateBodyTowardsHead();
-    }
-
-    private void RotateBodyTowardsHead()
-    {
-        Transform body;
-        Transform nextBody = headTran;
-
-        for (int i = 0; i < numSpawnedBodies; i++)
-        {
-            body = bodyTran[i];
-            if (i >= 1) nextBody = bodyTran[i - 1];
-
-            // Calculate the direction and distance to the body in front of it
-            Vector3 directionToNextBody = nextBody.position - body.position;
-
-            // Calculate the target rotation based on the direction to the tail
-            Quaternion targetRotation = Quaternion.LookRotation(directionToNextBody);
-
-            // Smoothly rotate towards the target rotation
-            body.rotation = Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-        }
-    }
-
-    private void MoveBodyPositionsWhileGrowing()
-    {
-        Transform body;
-        Transform nextBody = headTran;
-
-        // Stretch body
-        for (int i = 0; i < numSpawnedBodies; i++)
-        {
-            body = bodyTran[i];
-            if (i >= 1) nextBody = bodyTran[i - 1];
-
-            SetBodyPosition(body, nextBody);
-        }
     }
 
     private void TrySpawnNewBody()
@@ -137,12 +101,55 @@ public class StretchBody : MonoBehaviour
         }
     }
 
+    private void RotateBodyTowardsHead()
+    {
+        Transform body;
+        Transform nextBody = headTran;
+
+        for (int i = 0; i < numSpawnedBodies; i++)
+        {
+            body = bodyTran[i];
+
+            // Calculate the direction and distance to the body in front of it
+            Vector3 directionToNextBody = nextBody.position - body.position;
+
+            // Calculate the target rotation based on the direction to the tail
+            Quaternion targetRotation = Quaternion.LookRotation(directionToNextBody);
+
+            // Smoothly rotate towards the target rotation
+            body.rotation = Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+
+            nextBody = body;
+        }
+    }
+
+    // Handles movement of all bodies by setting position from the head and constraining from the tail
+    private void MoveBodyPositions()
+    {
+        Transform body;
+        Transform nextBody = headTran;
+
+        // Move bodies towards the body in front of them, starting closest to head
+        for (int i = 0; i < numSpawnedBodies; i++)
+        {
+            body = bodyTran[i];
+            SetBodyPosition(body, nextBody);
+            nextBody = body;
+        }
+
+        // Once all bodies exist, enforce the tail side of the chain too.
+        if (hasSpawnedAllBodies)
+        {
+            ConstrainChainFromTail();
+        }
+    }
+
+    // Using the body in front of it as reference, it sets body position within max distance and withing max rotation of it's forward vector
     private void SetBodyPosition(Transform body, Transform nextBody)
     {
         float angle = Vector3.SignedAngle(body.forward, nextBody.forward, Vector3.up);
-        float maxRot = (nextBody == headTran) ? maxFrontBodyRotation : maxRotation;
 
-        if (Mathf.Abs(angle) < maxRot)
+        if (Mathf.Abs(angle) < maxRotation)
         {
             // Calculate the direction and distance to the body in front of it
             Vector3 directionToNextBody = nextBody.position - body.position;
@@ -157,7 +164,7 @@ public class StretchBody : MonoBehaviour
         else
         {
             if (Mathf.Abs(angle) > flipRotationThreshold) angle = Mathf.Sign(angle) * flipRotationThreshold;
-            float clampedAngle = Mathf.Clamp(angle, -maxRot, maxRot);
+            float clampedAngle = Mathf.Clamp(angle, -maxRotation, maxRotation);
 
             // Start behind the next body.
             Vector3 direction = -nextBody.forward;
@@ -177,6 +184,57 @@ public class StretchBody : MonoBehaviour
             Debug.Log("Old Angle: " + angle + ", New Angle: " + newAngle);
             */
         }
+    }
 
+    // Constrains all bodies starting from body closest to tail so they are no further than max distance from the body behind it
+    private void ConstrainChainFromTail()
+    {
+        for (int iter = 0; iter < constrainIterations; iter++)
+        {
+            Transform prevBody = tailTran;
+
+            for (int i = bodyTran.Count - 1; i >= 0; i--)
+            {
+                Transform body = bodyTran[i];
+                ConstrainBodyDistance(body, prevBody);
+                prevBody = body;
+            }
+        }
+    }
+
+    // Constrains a body to be no further than max distance from the body behind it
+    private void ConstrainBodyDistance(Transform body, Transform prevBody)
+    {
+        Vector3 offset = prevBody.position - body.position;
+        float distance = offset.magnitude;
+
+        if (distance <= maxDistance) return;
+
+        // Don't lerp position to enforce constraint immediately
+        body.position += (distance - maxDistance) * offset.normalized;
+    }
+
+
+    // Returns true if player has stretched as far as possible (front body sphere is too far from head)
+    public bool IsMaxStretchReached()
+    {
+        if (numSpawnedBodies < bodyTran.Count) return false;
+
+        float distance = Vector3.Distance(bodyTran[0].position, headTran.position);
+        return distance > maxDistance + maxStretchDistanceThreshold;
+    }
+
+    // Returns the forward vector of the body sphere right behind the head
+    public Vector3 GetFrontBodyForward()
+    {
+        if (numSpawnedBodies < 1) return Vector3.zero;
+        return bodyTran[0].forward;
+    }
+
+    // Returns the right vector of the body sphere right behind the head
+    public Vector3 GetFrontBodyRight()
+    {
+        if (numSpawnedBodies < 1) return Vector3.zero;
+        return bodyTran[0].right;
     }
 }

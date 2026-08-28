@@ -2,6 +2,7 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(InputManager))]
+[RequireComponent(typeof(StretchBody))]
 public class StretchController : MonoBehaviour
 {
     [Header("Stretch Movement Settings")]
@@ -17,6 +18,7 @@ public class StretchController : MonoBehaviour
     private Transform camTran;
     private Rigidbody body;
     private InputManager input;
+    private StretchBody stretchBody;
     private Vector3 moveDirection = Vector3.zero;
     private Transform backBodyParentTran;
 
@@ -33,6 +35,7 @@ public class StretchController : MonoBehaviour
         camTran = Camera.main.transform;
         backBodyParentTran = backBodyTran.parent;
         body = GetComponent<Rigidbody>();
+        stretchBody = GetComponent<StretchBody>();
         input = GetComponent<InputManager>();
         input.OnStretchInputChanged += OnStretchInputChanged;
     }
@@ -104,6 +107,31 @@ public class StretchController : MonoBehaviour
 
             if (body.linearVelocity.magnitude < 0.1f)
                 body.linearVelocity = new Vector3(0f, body.linearVelocity.y, 0f);
+        }
+        // Prevent player from going past max stretch distance
+        else if (stretchBody.IsMaxStretchReached())
+        {
+            Vector3 direction = moveDirection;
+            Vector3 front = stretchBody.GetFrontBodyForward();
+            Vector3 right = stretchBody.GetFrontBodyRight();
+
+            // Remove move input in stretch direction
+            if (Vector3.Dot(moveDirection, front) > 0f)
+            {
+                float amount = Vector3.Dot(moveDirection, right);
+                direction = amount * right;
+            }
+
+            // Remove velocity in stretch direction
+            if (Vector3.Dot(body.linearVelocity, front) > 0f)
+            {
+                float rightAmount = Vector3.Dot(body.linearVelocity, right);
+                Vector3 newVel = rightAmount * right;
+                body.linearVelocity = new Vector3(newVel.x, body.linearVelocity.y, newVel.z);
+            }
+
+            Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * direction;
+            body.linearVelocity += acceleration;
         }
         // Accelerate towards move direction which is camera-relative input
         else

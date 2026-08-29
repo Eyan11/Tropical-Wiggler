@@ -13,13 +13,12 @@ public class StretchBody : MonoBehaviour
     private Transform bodyParent;
 
     [Header ("Stretch Settings")]
-    [SerializeField] private float maxRotation = 30f;
-    [SerializeField] private float flipRotationThreshold = 30f;
-    [SerializeField] private float maxDistance = 1.0f;
-    [SerializeField] private float rotationSpeed = 5f;
-    [SerializeField] private float bodyMoveSpeed = 5f;
-    [SerializeField] private float maxStretchDistanceThreshold = 0.15f;
-    [SerializeField] private int constrainIterations = 3;
+    [SerializeField] private float maxRotation = 60f;
+    [SerializeField] private float flipRotationThreshold = 65f;
+    [SerializeField] private float maxDistance = 0.80f;
+    [SerializeField] private float rotationSpeed = 100f;
+    [SerializeField] private float maxStretchDistanceThreshold = 0.3f;
+    [SerializeField] private int constrainIterations = 5;
     private bool hasSpawnedAllBodies = false;
     private int numSpawnedBodies = 0;
     private bool isStretching = false;
@@ -63,6 +62,7 @@ public class StretchBody : MonoBehaviour
         }
     }
 
+    
     private void Update()
     {
         if (!isStretching) return;
@@ -74,6 +74,8 @@ public class StretchBody : MonoBehaviour
         MoveBodyPositions();
         RotateBodyTowardsHead();
     }
+    
+    
 
     private void TrySpawnNewBody()
     {
@@ -127,20 +129,31 @@ public class StretchBody : MonoBehaviour
     private void MoveBodyPositions()
     {
         Transform body;
-        Transform nextBody = headTran;
+        Transform referenceBody;
 
-        // Move bodies towards the body in front of them, starting closest to head
-        for (int i = 0; i < numSpawnedBodies; i++)
+        for (int iter = 0; iter < constrainIterations; iter++)
         {
-            body = bodyTran[i];
-            SetBodyPosition(body, nextBody);
-            nextBody = body;
-        }
+            referenceBody = headTran;
 
-        // Once all bodies exist, enforce the tail side of the chain too.
-        if (hasSpawnedAllBodies)
-        {
-            ConstrainChainFromTail();
+            // Move bodies towards body in front of them, starting closest to head
+            for (int i = 0; i < numSpawnedBodies; i++)
+            {
+                body = bodyTran[i];
+                SetBodyPosition(body, referenceBody);
+                referenceBody = body;
+            }
+
+            if (!hasSpawnedAllBodies) return;
+
+            referenceBody = tailTran;
+
+            // Move bodies towards body behind them, starting closest to tail
+            for (int i = bodyTran.Count - 1; i >= 0; i--)
+            {
+                body = bodyTran[i];
+                ConstrainBodyDistance(body, referenceBody);
+                referenceBody = body;
+            }
         }
     }
 
@@ -173,7 +186,7 @@ public class StretchBody : MonoBehaviour
             direction = Quaternion.AngleAxis(-clampedAngle, Vector3.up) * direction;
             Vector3 targetPosition = nextBody.position + direction * maxDistance;
             
-            body.position = Vector3.Lerp(body.position, targetPosition, bodyMoveSpeed * Time.deltaTime);
+            body.position = targetPosition;
 
             /* DEBUG
             float newAngle = Vector3.SignedAngle(
@@ -183,22 +196,6 @@ public class StretchBody : MonoBehaviour
             );
             Debug.Log("Old Angle: " + angle + ", New Angle: " + newAngle);
             */
-        }
-    }
-
-    // Constrains all bodies starting from body closest to tail so they are no further than max distance from the body behind it
-    private void ConstrainChainFromTail()
-    {
-        for (int iter = 0; iter < constrainIterations; iter++)
-        {
-            Transform prevBody = tailTran;
-
-            for (int i = bodyTran.Count - 1; i >= 0; i--)
-            {
-                Transform body = bodyTran[i];
-                ConstrainBodyDistance(body, prevBody);
-                prevBody = body;
-            }
         }
     }
 

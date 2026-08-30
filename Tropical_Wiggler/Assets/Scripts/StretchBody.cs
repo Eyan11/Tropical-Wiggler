@@ -14,7 +14,8 @@ public class StretchBody : MonoBehaviour
 
     [Header ("Stretch Settings")]
     [SerializeField] private float maxRotation = 60f;
-    [SerializeField] private float flipRotationThreshold = 65f;
+    [Tooltip ("Rotation to set body to when max rotation is exceeded. Should be less than maxRotation.")]
+    [SerializeField] private float resetRotation = 55f;
     [SerializeField] private float maxDistance = 0.80f;
     [SerializeField] private float rotationSpeed = 100f;
     [SerializeField] private float maxStretchDistanceThreshold = 0.3f;
@@ -176,7 +177,7 @@ public class StretchBody : MonoBehaviour
         }
         else
         {
-            if (Mathf.Abs(angle) > flipRotationThreshold) angle = Mathf.Sign(angle) * flipRotationThreshold;
+            angle = Mathf.Sign(angle) * resetRotation;
             float clampedAngle = Mathf.Clamp(angle, -maxRotation, maxRotation);
 
             // Start behind the next body.
@@ -187,15 +188,6 @@ public class StretchBody : MonoBehaviour
             Vector3 targetPosition = nextBody.position + direction * maxDistance;
             
             body.position = targetPosition;
-
-            /* DEBUG
-            float newAngle = Vector3.SignedAngle(
-                body.forward,
-                nextBody.forward,
-                Vector3.up
-            );
-            Debug.Log("Old Angle: " + angle + ", New Angle: " + newAngle);
-            */
         }
     }
 

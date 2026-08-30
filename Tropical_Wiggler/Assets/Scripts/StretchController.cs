@@ -6,12 +6,14 @@ using UnityEngine;
 public class StretchController : MonoBehaviour
 {
     [Header("Stretch Movement Settings")]
-    [SerializeField] private float maxSpeed = 7f;
+    [SerializeField] private float maxSpeed = 9f;
+    [Tooltip("Defines the multiplier to max speed when at max stretch distance. Y = 1 means speed is maxSpeed, Y = 0 means speed is 0. X = 0 means move direction is perpendicular to stretch direction, X = 1 means move direction is in the same direction as stretch direction.")]
+    [SerializeField] private AnimationCurve maxStretchSpeedReductionCurve;
     [SerializeField] private float accelerationForce = 20f;
     [SerializeField] private float deaccelerationForce = -15f;
     [Header("Stretch Orientation Settings")]
     [SerializeField] private Transform orientationTran;
-    [SerializeField] private float rotationSpeed = 100f;
+    [SerializeField] private float rotationSpeed = 200f;
     [Header("Visuals")]
     [SerializeField] private Transform backBodyTran;
     private StretchState currentStretchState = StretchState.Disabled;
@@ -99,7 +101,7 @@ public class StretchController : MonoBehaviour
 
     private void MovePlayer()
     {
-        // Deaaccelerate when no input unbtil reaching speed of 0
+        // Deaaccelerate when no input until reaching speed of 0
         if (input.GetCurMoveInput() == Vector2.zero)
         {
             Vector2 deacceleration = deaccelerationForce * Time.fixedDeltaTime * new Vector2(body.linearVelocity.x, body.linearVelocity.z);
@@ -132,14 +134,19 @@ public class StretchController : MonoBehaviour
 
             Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * direction;
             body.linearVelocity += acceleration;
+
+            // Lerp speed from 0 to max speed based on closeness of move direction to stretch direction
+            float dot = Vector3.Dot(moveDirection.normalized, front);
+            float t = maxStretchSpeedReductionCurve.Evaluate(dot);
+            float lerpedSpeed = Mathf.Lerp(0f, maxSpeed, t);
+            body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, lerpedSpeed);
         }
         // Accelerate towards move direction which is camera-relative input
         else
         {
             Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * moveDirection;
             body.linearVelocity += acceleration;
+            body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
         }
-
-        body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
     }
 }

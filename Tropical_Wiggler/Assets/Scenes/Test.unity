@@ -1793,6 +1793,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   accelerationForce: 25
   deaccelerationForce: -15
+  maxStretchOpposingForce: 15
   orientationTran: {fileID: 1384842895}
   rotationSpeed: 200
   backBodyTran: {fileID: 194090931}

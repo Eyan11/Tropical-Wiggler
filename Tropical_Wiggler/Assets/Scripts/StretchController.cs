@@ -9,8 +9,9 @@ public class StretchController : MonoBehaviour
     [SerializeField] private float maxSpeed = 9f;
     [Tooltip("Defines the multiplier to max speed when at max stretch distance. Y = 1 means speed is maxSpeed, Y = 0 means speed is 0. X = 0 means move direction is perpendicular to stretch direction, X = 1 means move direction is in the same direction as stretch direction.")]
     [SerializeField] private AnimationCurve maxStretchSpeedReductionCurve;
-    [SerializeField] private float accelerationForce = 20f;
+    [SerializeField] private float accelerationForce = 25f;
     [SerializeField] private float deaccelerationForce = -15f;
+    [SerializeField] private float maxStretchOpposingForce = 15f;
     [Header("Stretch Orientation Settings")]
     [SerializeField] private Transform orientationTran;
     [SerializeField] private float rotationSpeed = 200f;
@@ -133,6 +134,8 @@ public class StretchController : MonoBehaviour
             }
 
             Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * direction;
+            // Add force towards front body sphere to prevent bug where player pushes against environment to get further away
+            acceleration += maxStretchOpposingForce * Time.fixedDeltaTime * -front;
             body.linearVelocity += acceleration;
 
             // Lerp speed from 0 to max speed based on closeness of move direction to stretch direction

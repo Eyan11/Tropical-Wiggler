@@ -10,8 +10,10 @@ public class LazyCamRotation : MonoBehaviour
     [SerializeField] private float maxAngleThreshold = 177f;
     [Tooltip("Curve that maps minRotationSpeed to maxRotationSpeed based on the unsigned angle between camera forward and player movement direction.")]
     [SerializeField] private AnimationCurve rotationSpeedCurve;
-    [Tooltip("Curve that applies a multiplier to final rotation speed based on vertical rotation of camera, where 0 is at the bottom ring and 1 is at the top ring in the orbital follow")]
+    [Tooltip("Curve that applies a multiplier to final rotation speed based on vertical rotation of camera, where 0 is at the bottom ring and 1 is at the top ring in the orbital follow.")]
     [SerializeField] private AnimationCurve verticalRotationMultiplierCurve;
+    [Tooltip("The minimum velocity the player must be moving to cause the camera to rotate.")]
+    [SerializeField] private float minVelocityThreshold = 3.25f;
     private CinemachineCamera cinemachineCamera;
     private CinemachineOrbitalFollow orbitalFollow;
 
@@ -25,10 +27,10 @@ public class LazyCamRotation : MonoBehaviour
     {
         Vector3 velocity = playerRigidbody.linearVelocity;
         velocity.y = 0f;
+        float speed = velocity.magnitude;
 
-        if (velocity.sqrMagnitude < 0.01f) return;
-
-        velocity.Normalize();
+        if (speed < minVelocityThreshold) return;
+        velocity /= speed; // Normalize velocity
 
         Vector3 cameraForward = cinemachineCamera.transform.forward;
         cameraForward.y = 0f;

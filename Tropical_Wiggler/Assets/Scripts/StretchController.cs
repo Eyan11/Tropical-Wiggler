@@ -2,22 +2,25 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(InputManager))]
+[RequireComponent(typeof(StretchBody))]
 public class StretchController : MonoBehaviour
 {
     [Header("Stretch Movement Settings")]
-    [SerializeField] private float maxSpeed = 7f;
+    [SerializeField] private float maxSpeed = 9f;
+    [Tooltip("Defines the multiplier to max speed when at max stretch distance. Y = 1 means speed is maxSpeed, Y = 0 means speed is 0. X = 0 means move direction is perpendicular to stretch direction, X = 1 means move direction is in the same direction as stretch direction.")]
+    [SerializeField] private AnimationCurve maxStretchSpeedReductionCurve;
     [SerializeField] private float accelerationForce = 20f;
     [SerializeField] private float deaccelerationForce = -15f;
-    [SerializeField] private float maxStretchDistance = 10f;
     [Header("Stretch Orientation Settings")]
     [SerializeField] private Transform orientationTran;
-    [SerializeField] private float rotationSpeed = 100f;
+    [SerializeField] private float rotationSpeed = 200f;
     [Header("Visuals")]
     [SerializeField] private Transform backBodyTran;
     private StretchState currentStretchState = StretchState.Disabled;
     private Transform camTran;
     private Rigidbody body;
     private InputManager input;
+    private StretchBody stretchBody;
     private Vector3 moveDirection = Vector3.zero;
     private Transform backBodyParentTran;
 
@@ -34,6 +37,7 @@ public class StretchController : MonoBehaviour
         camTran = Camera.main.transform;
         backBodyParentTran = backBodyTran.parent;
         body = GetComponent<Rigidbody>();
+        stretchBody = GetComponent<StretchBody>();
         input = GetComponent<InputManager>();
         input.OnStretchInputChanged += OnStretchInputChanged;
     }
@@ -97,7 +101,7 @@ public class StretchController : MonoBehaviour
 
     private void MovePlayer()
     {
-        // Deaaccelerate when no input unbtil reaching speed of 0
+        // Deaaccelerate when no input until reaching speed of 0
         if (input.GetCurMoveInput() == Vector2.zero)
         {
             Vector2 deacceleration = deaccelerationForce * Time.fixedDeltaTime * new Vector2(body.linearVelocity.x, body.linearVelocity.z);
@@ -106,13 +110,43 @@ public class StretchController : MonoBehaviour
             if (body.linearVelocity.magnitude < 0.1f)
                 body.linearVelocity = new Vector3(0f, body.linearVelocity.y, 0f);
         }
+        // Prevent player from going past max stretch distance
+        else if (stretchBody.IsMaxStretchReached())
+        {
+            Vector3 direction = moveDirection;
+            Vector3 front = stretchBody.GetFrontBodyForward();
+            Vector3 right = stretchBody.GetFrontBodyRight();
+
+            // Remove move input in stretch direction
+            if (Vector3.Dot(moveDirection, front) > 0f)
+            {
+                float amount = Vector3.Dot(moveDirection, right);
+                direction = amount * right;
+            }
+
+            // Remove velocity in stretch direction
+            if (Vector3.Dot(body.linearVelocity, front) > 0f)
+            {
+                float rightAmount = Vector3.Dot(body.linearVelocity, right);
+                Vector3 newVel = rightAmount * right;
+                body.linearVelocity = new Vector3(newVel.x, body.linearVelocity.y, newVel.z);
+            }
+
+            Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * direction;
+            body.linearVelocity += acceleration;
+
+            // Lerp speed from 0 to max speed based on closeness of move direction to stretch direction
+            float dot = Vector3.Dot(moveDirection.normalized, front);
+            float t = maxStretchSpeedReductionCurve.Evaluate(dot);
+            float lerpedSpeed = Mathf.Lerp(0f, maxSpeed, t);
+            body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, lerpedSpeed);
+        }
         // Accelerate towards move direction which is camera-relative input
         else
         {
             Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * moveDirection;
             body.linearVelocity += acceleration;
+            body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
         }
-
-        body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
     }
 }

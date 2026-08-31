@@ -9,6 +9,7 @@ public class StretchBody : MonoBehaviour
     [SerializeField] private Transform tailTran;
     [SerializeField] private Transform headTran;
     private List<Transform> bodyTran = new List<Transform>();
+    private List<SphereCollider> bodyColl = new List<SphereCollider>();
     private InputManager input;
     private Transform bodyParent;
 
@@ -24,6 +25,13 @@ public class StretchBody : MonoBehaviour
     private int numSpawnedBodies = 0;
     private bool isStretching = false;
 
+    [Header ("Collision Settings")]
+    [SerializeField] private LayerMask collisionMask;
+    [Tooltip ("Extra distance to keep body spheres away from colliders when resolving collisions. Keep very low at a value below 0.1")]
+    [SerializeField] private float collisionOffset = 0.01f;
+    [SerializeField] private int collisionResolveIterations = 2;
+    private readonly Collider[] collisionResults = new Collider[16];
+
     private void Awake()
     {
         bodyParent = tailAndBodyTran.parent;
@@ -36,6 +44,7 @@ public class StretchBody : MonoBehaviour
         {
             if (child != tailTran) {
                 bodyTran.Add(child);
+                bodyColl.Add(child.GetComponent<SphereCollider>());
                 child.gameObject.SetActive(false);
             }
         }
@@ -141,19 +150,22 @@ public class StretchBody : MonoBehaviour
             {
                 body = bodyTran[i];
                 SetBodyPosition(body, referenceBody);
+                ResolveBodyCollision(bodyColl[i]); // Handle collisions, must do after moving
                 referenceBody = body;
             }
 
-            if (!hasSpawnedAllBodies) return;
-
-            referenceBody = tailTran;
-
-            // Move bodies towards body behind them, starting closest to tail
-            for (int i = bodyTran.Count - 1; i >= 0; i--)
+            if (hasSpawnedAllBodies)
             {
-                body = bodyTran[i];
-                ConstrainBodyDistance(body, referenceBody);
-                referenceBody = body;
+                referenceBody = tailTran;
+
+                // Move bodies towards body behind them, starting closest to tail
+                for (int i = bodyTran.Count - 1; i >= 0; i--)
+                {
+                    body = bodyTran[i];
+                    ConstrainBodyDistance(body, referenceBody);
+                    ResolveBodyCollision(bodyColl[i]); // Handle collisions, must do after constraining
+                    referenceBody = body;
+                }
             }
         }
     }
@@ -201,6 +213,38 @@ public class StretchBody : MonoBehaviour
 
         // Don't lerp position to enforce constraint immediately
         body.position += (distance - maxDistance) * offset.normalized;
+    }
+
+    // Resolves collisions between body spheres and the environment
+    private void ResolveBodyCollision(SphereCollider sphereColl)
+    {
+        Transform bodyTran = sphereColl.transform;
+
+        for (int iteration = 0; iteration < collisionResolveIterations; iteration++)
+        {
+            Vector3 worldCenter = bodyTran.TransformPoint(sphereColl.center);
+            float worldRadius = sphereColl.radius * bodyTran.lossyScale.x; // Assuming uniform scale
+
+            int hitCount = Physics.OverlapSphereNonAlloc(worldCenter, worldRadius + collisionOffset,
+                collisionResults, collisionMask, QueryTriggerInteraction.Ignore);
+            bool foundOverlap = false;
+
+            for (int i = 0; i < hitCount; i++) // For all colliders overlapping this body sphere
+            {
+                Collider other = collisionResults[i];
+
+                // If body collider is overlapping with another collider, move it outside of collider
+                if (Physics.ComputePenetration(sphereColl, bodyTran.position, bodyTran.rotation, 
+                    other, other.transform.position, other.transform.rotation, 
+                    out Vector3 direction, out float distance))
+                {
+                    bodyTran.position += direction * (distance + collisionOffset);
+                    foundOverlap = true;
+                }
+            }
+
+            if (!foundOverlap) break;
+        }
     }
 
 

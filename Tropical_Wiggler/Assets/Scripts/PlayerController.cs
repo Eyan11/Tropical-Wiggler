@@ -76,9 +76,9 @@ public class PlayerController : MonoBehaviour
         Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
 
         // Rotate at constant speed towards last non-zero movement direction
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+        orientationTran.rotation = Quaternion.RotateTowards(orientationTran.rotation, targetRotation, rotationSpeed * Time.deltaTime);
 
-        float rotationDifference = Quaternion.Angle(transform.rotation, targetRotation);
+        float rotationDifference = Quaternion.Angle(orientationTran.rotation, targetRotation);
 
         if (rotationDifference < 0.1f) // Stop rotating when very close to target rotation
         {

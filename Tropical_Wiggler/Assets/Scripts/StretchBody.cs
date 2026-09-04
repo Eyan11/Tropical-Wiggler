@@ -12,18 +12,21 @@ public class StretchBody : MonoBehaviour
     private List<SphereCollider> bodyColl = new List<SphereCollider>();
     private InputManager input;
     private Transform bodyParent;
+    private Vector3 tailAndBodyStartPos;
 
     [Header ("Stretch Settings")]
     [SerializeField] private float maxRotation = 60f;
     [Tooltip ("Rotation to set body to when max rotation is exceeded. Should be less than maxRotation.")]
     [SerializeField] private float resetRotation = 55f;
     [SerializeField] private float maxDistance = 0.80f;
+    [SerializeField] private float minDistance = 0.3f;
     [SerializeField] private float rotationSpeed = 100f;
     [SerializeField] private float maxStretchDistanceThreshold = 0.3f;
     [SerializeField] private int constrainIterations = 5;
     private bool hasSpawnedAllBodies = false;
     private int numSpawnedBodies = 0;
     private bool isStretching = false;
+    private float curDistance = 0.80f; // Current distance between all body spheres
 
     [Header ("Collision Settings")]
     [SerializeField] private LayerMask collisionMask;
@@ -34,7 +37,9 @@ public class StretchBody : MonoBehaviour
 
     private void Awake()
     {
+        curDistance = maxDistance;
         bodyParent = tailAndBodyTran.parent;
+        tailAndBodyStartPos = tailAndBodyTran.localPosition;
 
         input = GetComponent<InputManager>();
         input.OnStretchInputChanged += OnStretchInputChanged;
@@ -57,13 +62,12 @@ public class StretchBody : MonoBehaviour
         {
             hasSpawnedAllBodies = false;
             numSpawnedBodies = 0;
-            tailAndBodyTran.SetParent(null, false);
+            tailAndBodyTran.SetParent(null);
         }
         else
         {
             tailAndBodyTran.SetParent(bodyParent);
-            tailAndBodyTran.localPosition = Vector3.zero;
-            tailAndBodyTran.localRotation = Quaternion.identity;
+            tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
         
             foreach (Transform body in bodyTran) // Hide all body spheres
             {
@@ -83,6 +87,7 @@ public class StretchBody : MonoBehaviour
         }
         MoveBodyPositions();
         RotateBodyTowardsHead();
+        UpdateCurrentDistance(); // Update distance between body spheres
     }
     
     
@@ -135,6 +140,27 @@ public class StretchBody : MonoBehaviour
         }
     }
 
+    // Updates curDistance by setting it to the average distance between all body spheres, clamped to min and max distance
+    private void UpdateCurrentDistance()
+    {
+        if (!hasSpawnedAllBodies) 
+        {
+            curDistance = maxDistance;
+            return;
+        }
+
+        float totalDistance = 0f;
+        totalDistance += Vector3.Distance(headTran.position, bodyTran[0].position); // Head to front body
+        totalDistance += Vector3.Distance(bodyTran[^1].position, tailTran.position); // Back body to tail
+        for (int i = 0; i < numSpawnedBodies - 1; i++)
+        {
+            totalDistance += Vector3.Distance(bodyTran[i].position, bodyTran[i + 1].position); // Body to body
+        }
+        float avgDistance = totalDistance / (numSpawnedBodies + 1); // Divide by number of gaps instead of number of bodies
+
+        curDistance = Mathf.Clamp(avgDistance, minDistance, maxDistance);
+    }
+
     // Handles movement of all bodies by setting position from the head and constraining from the tail
     private void MoveBodyPositions()
     {
@@ -181,10 +207,10 @@ public class StretchBody : MonoBehaviour
             Vector3 directionToNextBody = nextBody.position - body.position;
             float distanceToNextBody = directionToNextBody.magnitude;
 
-            // If the distance is greater than maxDistance, move the body towards the next body
-            if (distanceToNextBody > maxDistance)
+            // If the distance is greater than the current distance between bodies, move the body towards the next body
+            if (distanceToNextBody > curDistance)
             {
-                body.position += (distanceToNextBody - maxDistance) * directionToNextBody.normalized;
+                body.position += (distanceToNextBody - curDistance) * directionToNextBody.normalized;
             }
         }
         else
@@ -197,7 +223,7 @@ public class StretchBody : MonoBehaviour
 
             // Rotate direction vector by clampedAngle amount around the Y axis
             direction = Quaternion.AngleAxis(-clampedAngle, Vector3.up) * direction;
-            Vector3 targetPosition = nextBody.position + direction * maxDistance;
+            Vector3 targetPosition = nextBody.position + direction * curDistance;
             
             body.position = targetPosition;
         }
@@ -209,10 +235,10 @@ public class StretchBody : MonoBehaviour
         Vector3 offset = prevBody.position - body.position;
         float distance = offset.magnitude;
 
-        if (distance <= maxDistance) return;
+        if (distance <= curDistance) return;
 
         // Don't lerp position to enforce constraint immediately
-        body.position += (distance - maxDistance) * offset.normalized;
+        body.position += (distance - curDistance) * offset.normalized;
     }
 
     // Resolves collisions between body spheres and the environment
@@ -269,5 +295,11 @@ public class StretchBody : MonoBehaviour
     {
         if (numSpawnedBodies < 1) return Vector3.zero;
         return bodyTran[0].right;
+    }
+
+    public Quaternion GetFrontBodyRotation()
+    {
+        if (numSpawnedBodies < 1) return Quaternion.identity;
+        return bodyTran[0].rotation;
     }
 }

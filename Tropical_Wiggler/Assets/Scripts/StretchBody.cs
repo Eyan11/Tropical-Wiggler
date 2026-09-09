@@ -18,21 +18,27 @@ public class StretchBody : MonoBehaviour
     [SerializeField] private float maxRotation = 60f;
     [Tooltip ("Rotation to set body to when max rotation is exceeded. Should be less than maxRotation.")]
     [SerializeField] private float resetRotation = 55f;
-    [SerializeField] private float maxDistance = 0.80f;
+    [SerializeField] private float maxDistance = 0.8f;
     [SerializeField] private float minDistance = 0.3f;
     [SerializeField] private float rotationSpeed = 100f;
     [SerializeField] private float maxStretchDistanceThreshold = 0.3f;
-    [SerializeField] private int constrainIterations = 5;
+    [Tooltip ("The number of times the body position is set and constrained per frame (where setting and constraining both have collision checks afterwards). The algorithm will always execute all iterations and never exit early.")]
+    [SerializeField] private int constrainIterations = 3;
+    [Tooltip ("How fast the body spheres move towards their reset position when max rotation is exceeded. A low value can cause head front body to be too far from head and trigger max stretch too early, while a high value can allow for exploits where the body moves through colliders.")]
+    [SerializeField] private float resetPositionMoveSpeed = 100f;
     private bool hasSpawnedAllBodies = false;
     private int numSpawnedBodies = 0;
     private bool isStretching = false;
-    private float curDistance = 0.80f; // Current distance between all body spheres
+    private float curDistance = 0.8f; // Current distance between all body spheres
 
     [Header ("Collision Settings")]
     [SerializeField] private LayerMask collisionMask;
     [Tooltip ("Extra distance to keep body spheres away from colliders when resolving collisions. Keep very low at a value below 0.1")]
     [SerializeField] private float collisionOffset = 0.01f;
-    [SerializeField] private int collisionResolveIterations = 2;
+    [Tooltip ("The max number of times the sphere overlap collision detection and resolution will be performed, algorithm will exit early if no collisions are detected.")]
+    [SerializeField] private int maxCollisionResolveIterations = 2;
+    [Tooltip ("The max number of times the spherecast collision detection and slide will be performed, algorithm will exit early if no collisions are detected.")]
+    [SerializeField] private int maxCollisionSlideIterations = 3;
     private readonly Collider[] collisionResults = new Collider[16];
 
     private void Awake()
@@ -104,8 +110,9 @@ public class StretchBody : MonoBehaviour
         {
             Transform newBody = bodyTran[numSpawnedBodies];
 
-            newBody.position = tailTran.position;
-            newBody.rotation = nextBody.rotation;
+            //newBody.position = tailTran.position;
+            //newBody.rotation = nextBody.rotation;
+            newBody.SetPositionAndRotation(tailTran.position, nextBody.rotation);
             SetBodyPosition(newBody, nextBody);
 
             newBody.gameObject.SetActive(true);
@@ -175,8 +182,9 @@ public class StretchBody : MonoBehaviour
             for (int i = 0; i < numSpawnedBodies; i++)
             {
                 body = bodyTran[i];
+                Vector3 oldPos = body.position;
                 SetBodyPosition(body, referenceBody);
-                ResolveBodyCollision(bodyColl[i]); // Handle collisions, must do after moving
+                ResolveBodyCollision(bodyColl[i], oldPos); // Handle collisions, must do after moving
                 referenceBody = body;
             }
 
@@ -188,8 +196,9 @@ public class StretchBody : MonoBehaviour
                 for (int i = bodyTran.Count - 1; i >= 0; i--)
                 {
                     body = bodyTran[i];
+                    Vector3 oldPos = body.position;
                     ConstrainBodyDistance(body, referenceBody);
-                    ResolveBodyCollision(bodyColl[i]); // Handle collisions, must do after constraining
+                    ResolveBodyCollision(bodyColl[i], oldPos); // Handle collisions, must do after constraining
                     referenceBody = body;
                 }
             }
@@ -200,32 +209,39 @@ public class StretchBody : MonoBehaviour
     private void SetBodyPosition(Transform body, Transform nextBody)
     {
         float angle = Vector3.SignedAngle(body.forward, nextBody.forward, Vector3.up);
+        Vector3 directionToNextBody = nextBody.position - body.position;
+        float distanceToNextBody = directionToNextBody.magnitude;
+        directionToNextBody.Normalize();
+        if (distanceToNextBody <= 0.001f) return;
 
         if (Mathf.Abs(angle) < maxRotation)
         {
-            // Calculate the direction and distance to the body in front of it
-            Vector3 directionToNextBody = nextBody.position - body.position;
-            float distanceToNextBody = directionToNextBody.magnitude;
-
             // If the distance is greater than the current distance between bodies, move the body towards the next body
             if (distanceToNextBody > curDistance)
             {
-                body.position += (distanceToNextBody - curDistance) * directionToNextBody.normalized;
+                body.position += (distanceToNextBody - curDistance) * directionToNextBody;
             }
         }
         else
         {
-            angle = Mathf.Sign(angle) * resetRotation;
-            float clampedAngle = Mathf.Clamp(angle, -maxRotation, maxRotation);
+            // Calculate two possible reset directions, which rotate -/+resetRotation degrees from the next body's backward vector
+            Vector3 resetDirA = Quaternion.AngleAxis(resetRotation, Vector3.up) * -nextBody.forward;
+            Vector3 resetDirB = Quaternion.AngleAxis(-resetRotation, Vector3.up) * -nextBody.forward;
 
-            // Start behind the next body.
-            Vector3 direction = -nextBody.forward;
+            // Choose the reset direction closest to the current direction
+            Vector3 curDir = -directionToNextBody;
+            Vector3 targetDir = (Vector3.Dot(curDir, resetDirA) > Vector3.Dot(curDir, resetDirB)) ? resetDirA : resetDirB;
 
-            // Rotate direction vector by clampedAngle amount around the Y axis
-            direction = Quaternion.AngleAxis(-clampedAngle, Vector3.up) * direction;
-            Vector3 targetPosition = nextBody.position + direction * curDistance;
-            
-            body.position = targetPosition;
+            // Calculate how long the body can move during one constraint iteration
+            float maxMove = resetPositionMoveSpeed * Time.deltaTime / constrainIterations;
+
+            // Calculate the maximum angle we can rotate by (angle in radians = arc length / radius)
+            float maxRadians = maxMove / Mathf.Max(distanceToNextBody, 0.001f);
+            Vector3 newDir = Vector3.RotateTowards(curDir, targetDir, maxRadians, 0f);
+
+            // Gradually move towards newDir without exceeding curDistance
+            float newDist = Mathf.MoveTowards(distanceToNextBody, curDistance, maxMove);
+            body.position = nextBody.position + (newDir * newDist);
         }
     }
 
@@ -241,35 +257,98 @@ public class StretchBody : MonoBehaviour
         body.position += (distance - curDistance) * offset.normalized;
     }
 
-    // Resolves collisions between body spheres and the environment
-    private void ResolveBodyCollision(SphereCollider sphereColl)
+    // Resolves collisions for a body sphere using a spherecast from its old position to its new position
+    private void ResolveBodyCollision(SphereCollider sphereColl, Vector3 oldPos)
     {
-        Transform bodyTran = sphereColl.transform;
+        Transform body = sphereColl.transform;
 
-        for (int iteration = 0; iteration < collisionResolveIterations; iteration++)
+        // SetBodyPosition / ConstrainBodyDistance already moved us here. Save that as the position we're trying to reach.
+        Vector3 targetPos = body.position;
+
+        // Go back so we can actually sweep from old -> target.
+        body.position = oldPos;
+
+        // In case we were already slightly inside something.
+        ResolveCurrentBodyCollision(sphereColl);
+
+        Vector3 remainingMove = targetPos - body.position;
+        float worldRadius = sphereColl.radius * body.lossyScale.x;
+
+        for (int iteration = 0; iteration < maxCollisionSlideIterations; iteration++)
         {
-            Vector3 worldCenter = bodyTran.TransformPoint(sphereColl.center);
-            float worldRadius = sphereColl.radius * bodyTran.lossyScale.x; // Assuming uniform scale
+            float distance = remainingMove.magnitude;
 
-            int hitCount = Physics.OverlapSphereNonAlloc(worldCenter, worldRadius + collisionOffset,
-                collisionResults, collisionMask, QueryTriggerInteraction.Ignore);
+            if (distance <= 0.001f) break;
+
+            Vector3 direction = remainingMove / distance;
+            Vector3 worldCenter = body.TransformPoint(sphereColl.center);
+
+            if (!Physics.SphereCast(worldCenter, worldRadius, direction, out RaycastHit hit, distance, collisionMask, QueryTriggerInteraction.Ignore))
+            {
+                // Nothing blocking the rest of our movement.
+                body.position += remainingMove;
+                if (iteration > 0) Debug.Log("[ResolveBodyCollision] Took " + iteration + " iterations to resolve collisions for body sphere: " + body.name);
+                break;
+            }
+
+            // Move as far as we safely can toward the collision.
+            float safeDistance = Mathf.Max(0f, hit.distance - collisionOffset);
+            body.position += direction * safeDistance;
+
+            // Remove the movement we already completed.
+            remainingMove -= direction * safeDistance;
+
+            // Remove only the part of our remaining movement that tries to go INTO the collider.
+            float intoSurface = Vector3.Dot(remainingMove, hit.normal);
+
+            if (intoSurface < 0f)
+            {
+                remainingMove -= hit.normal * intoSurface;
+            }
+
+            if (iteration == maxCollisionSlideIterations - 1) Debug.Log("[ResolveBodyCollision] Took " + iteration + " iterations to resolve collisions for body sphere: " + body.name);
+        }
+
+        // Safety cleanup for tiny penetrations / multiple colliders.
+        ResolveCurrentBodyCollision(sphereColl);
+    }
+
+    // Resolves remaining collisions after spherecast by checking for overlaps and moving the body out of any colliders
+    private void ResolveCurrentBodyCollision(SphereCollider sphereColl)
+    {
+        Transform body = sphereColl.transform;
+
+        for (int iteration = 0; iteration < maxCollisionResolveIterations; iteration++)
+        {
+            Vector3 worldCenter = body.TransformPoint(sphereColl.center);
+            float worldRadius = sphereColl.radius * body.lossyScale.x;
+
+            // Get how many colliders are overlapping with the body sphere
+            int hitCount = Physics.OverlapSphereNonAlloc(worldCenter, worldRadius + collisionOffset, collisionResults, collisionMask, QueryTriggerInteraction.Ignore);
             bool foundOverlap = false;
 
-            for (int i = 0; i < hitCount; i++) // For all colliders overlapping this body sphere
+            // Resolve all collisions with current body's position by moving it outside of the collider it's overlapping with
+            for (int i = 0; i < hitCount; i++)
             {
                 Collider other = collisionResults[i];
 
-                // If body collider is overlapping with another collider, move it outside of collider
-                if (Physics.ComputePenetration(sphereColl, bodyTran.position, bodyTran.rotation, 
-                    other, other.transform.position, other.transform.rotation, 
-                    out Vector3 direction, out float distance))
+                if (Physics.ComputePenetration(sphereColl, body.position, body.rotation, other,
+                    other.transform.position, other.transform.rotation, out Vector3 direction, out float distance))
                 {
-                    bodyTran.position += direction * (distance + collisionOffset);
+                    body.position += direction * (distance + collisionOffset);
                     foundOverlap = true;
                 }
             }
 
-            if (!foundOverlap) break;
+            if (!foundOverlap)
+            {
+                if (iteration > 0) Debug.Log("[ResolveCurrentBodyCollision] Took " + iteration + " iterations to resolve collisions for body sphere: " + body.name);
+                break; // Exit if no collisions
+            }
+            else if (iteration == maxCollisionResolveIterations - 1)
+            {
+                Debug.Log("[ResolveCurrentBodyCollision] Took " + iteration + " iterations to resolve collisions for body sphere: " + body.name);
+            }
         }
     }
 

@@ -9,20 +9,23 @@ public class StretchController : MonoBehaviour
     [SerializeField] private float maxSpeed = 9f;
     [Tooltip("Defines the multiplier to max speed when at max stretch distance. Y = 1 means speed is maxSpeed, Y = 0 means speed is 0. X = 0 means move direction is perpendicular to stretch direction, X = 1 means move direction is in the same direction as stretch direction.")]
     [SerializeField] private AnimationCurve maxStretchSpeedReductionCurve;
-    [SerializeField] private float accelerationForce = 20f;
+    [SerializeField] private float accelerationForce = 50f;
     [SerializeField] private float deaccelerationForce = -15f;
+    [SerializeField] private float maxStretchOpposingForce = 30f;
+    private Vector3 moveDirection = Vector3.zero;
+    private StretchState currentStretchState = StretchState.Disabled;
+
     [Header("Stretch Orientation Settings")]
     [SerializeField] private Transform orientationTran;
-    [SerializeField] private float rotationSpeed = 200f;
-    [Header("Visuals")]
-    [SerializeField] private Transform backBodyTran;
-    private StretchState currentStretchState = StretchState.Disabled;
+    [SerializeField] private float maxRotationSpeed = 200f;
+    [SerializeField] private float rotationAcceleration = 200f;
+    [SerializeField] private float maxRotation = 50f;
+    private float rotationSpeed;
+    private Quaternion targetRotation = Quaternion.identity;
     private Transform camTran;
     private Rigidbody body;
     private InputManager input;
     private StretchBody stretchBody;
-    private Vector3 moveDirection = Vector3.zero;
-    private Transform backBodyParentTran;
 
     private enum StretchState
     {
@@ -35,7 +38,6 @@ public class StretchController : MonoBehaviour
     private void Awake()
     {
         camTran = Camera.main.transform;
-        backBodyParentTran = backBodyTran.parent;
         body = GetComponent<Rigidbody>();
         stretchBody = GetComponent<StretchBody>();
         input = GetComponent<InputManager>();
@@ -46,13 +48,10 @@ public class StretchController : MonoBehaviour
     {
         if (isStretching)
         {
-            backBodyTran.SetParent(null);
             currentStretchState = StretchState.Stretching;
         }
         else
         {
-            backBodyTran.SetParent(backBodyParentTran);
-            backBodyTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             currentStretchState = StretchState.Disabled; // Temporary
             // TODO: Set to contracting forward/backward
         }
@@ -76,27 +75,50 @@ public class StretchController : MonoBehaviour
 
     private void RotateTowardsInputDirection()
     {
-        if (input.GetCurMoveInput() == Vector2.zero) return;
+        rotationSpeed += rotationAcceleration * Time.deltaTime;
+        rotationSpeed = Mathf.Min(rotationSpeed, maxRotationSpeed);
 
-        Vector3 normalizedCamForward = camTran.forward;
-        normalizedCamForward.y = 0f;
-        normalizedCamForward.Normalize();
-        // Cam.right y value always equals 0 and is already normalized
+        if (input.GetCurMoveInput() != Vector2.zero)
+        {
+            Vector3 normalizedCamForward = camTran.forward;
+            normalizedCamForward.y = 0f;
+            normalizedCamForward.Normalize();
 
-        Vector2 lastMoveInput = input.GetLastNonZeroMoveInput();
-        moveDirection = lastMoveInput.x * camTran.right + lastMoveInput.y * normalizedCamForward;
+            // Camera y value can sometimes be a very small non-zero
+            Vector3 normalizedCamRight = camTran.right;
+            normalizedCamRight.y = 0f;
+            normalizedCamRight.Normalize();
 
-        Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
+            Vector2 lastMoveInput = input.GetLastNonZeroMoveInput();
+            moveDirection = lastMoveInput.x * normalizedCamRight + lastMoveInput.y * normalizedCamForward;
 
-        // Rotate at constant speed towards last non-zero movement direction
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-
-        float rotationDifference = Quaternion.Angle(transform.rotation, targetRotation);
-
-        if (rotationDifference < 0.1f) // Stop rotating when very close to target rotation
+            targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+        }
+        
+        
+        // Stop rotating when very close to target rotation
+        float rotationDifference = Quaternion.Angle(orientationTran.rotation, targetRotation);
+        if (rotationDifference < 0.1f)
         {
             orientationTran.rotation = targetRotation;
+            return;
         }
+
+        int dir = 1;
+        float headToFrontSignedAngle = Vector3.SignedAngle(orientationTran.forward, stretchBody.GetFrontBodyForward(), Vector3.up);
+        float frontToTargetAngle = Quaternion.Angle(stretchBody.GetFrontBodyRotation(), targetRotation);
+        float frontRightAndTargetDot = Vector3.Dot(stretchBody.GetFrontBodyRight(), moveDirection);
+        float frontRightAndHeadDot = Vector3.Dot(stretchBody.GetFrontBodyRight(), orientationTran.forward);
+
+        // Stop rotating if both head and target rotation are past max rotation AND head is on the same side as target rotation with respect to front body
+        if (Mathf.Abs(headToFrontSignedAngle) > maxRotation && frontToTargetAngle > maxRotation && Mathf.Sign(frontRightAndTargetDot) == Mathf.Sign(frontRightAndHeadDot)) return;
+
+        float headToTargetSignedAngle = Vector3.SignedAngle(orientationTran.forward, moveDirection, Vector3.up);
+
+        // If head is on opposite side as target rotation with respect to front body AND default rotation direction is towards front body, then rotate in opposite direction
+        if (Mathf.Sign(frontRightAndTargetDot) != Mathf.Sign(frontRightAndHeadDot) && Mathf.Sign(-headToFrontSignedAngle) == Mathf.Sign(headToTargetSignedAngle)) dir = -1;
+
+        orientationTran.rotation = Quaternion.RotateTowards(orientationTran.rotation, targetRotation, dir * rotationSpeed * Time.deltaTime);
     }
 
     private void MovePlayer()
@@ -115,7 +137,11 @@ public class StretchController : MonoBehaviour
         {
             Vector3 direction = moveDirection;
             Vector3 front = stretchBody.GetFrontBodyForward();
+            front.y = 0f;
+            front.Normalize();
             Vector3 right = stretchBody.GetFrontBodyRight();
+            right.y = 0f;
+            right.Normalize();
 
             // Remove move input in stretch direction
             if (Vector3.Dot(moveDirection, front) > 0f)
@@ -133,6 +159,8 @@ public class StretchController : MonoBehaviour
             }
 
             Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * direction;
+            // Add force towards front body sphere to prevent bug where player pushes against environment to get further away
+            acceleration += maxStretchOpposingForce * Time.fixedDeltaTime * -front;
             body.linearVelocity += acceleration;
 
             // Lerp speed from 0 to max speed based on closeness of move direction to stretch direction

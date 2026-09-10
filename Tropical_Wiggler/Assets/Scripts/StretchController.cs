@@ -9,17 +9,17 @@ public class StretchController : MonoBehaviour
     [SerializeField] private float maxSpeed = 9f;
     [Tooltip("Defines the multiplier to max speed when at max stretch distance. Y = 1 means speed is maxSpeed, Y = 0 means speed is 0. X = 0 means move direction is perpendicular to stretch direction, X = 1 means move direction is in the same direction as stretch direction.")]
     [SerializeField] private AnimationCurve maxStretchSpeedReductionCurve;
-    [SerializeField] private float accelerationForce = 25f;
+    [SerializeField] private float accelerationForce = 50f;
     [SerializeField] private float deaccelerationForce = -15f;
-    [SerializeField] private float maxStretchOpposingForce = 15f;
+    [SerializeField] private float maxStretchOpposingForce = 30f;
     private Vector3 moveDirection = Vector3.zero;
     private StretchState currentStretchState = StretchState.Disabled;
 
     [Header("Stretch Orientation Settings")]
     [SerializeField] private Transform orientationTran;
     [SerializeField] private float maxRotationSpeed = 200f;
-    [SerializeField] private float rotationAcceleration = 30f;
-    [SerializeField] private float maxRotation = 90f;
+    [SerializeField] private float rotationAcceleration = 200f;
+    [SerializeField] private float maxRotation = 50f;
     private float rotationSpeed;
     private Quaternion targetRotation = Quaternion.identity;
     private Transform camTran;
@@ -83,10 +83,14 @@ public class StretchController : MonoBehaviour
             Vector3 normalizedCamForward = camTran.forward;
             normalizedCamForward.y = 0f;
             normalizedCamForward.Normalize();
-            // Cam.right y value always equals 0 and is already normalized
+
+            // Camera y value can sometimes be a very small non-zero
+            Vector3 normalizedCamRight = camTran.right;
+            normalizedCamRight.y = 0f;
+            normalizedCamRight.Normalize();
 
             Vector2 lastMoveInput = input.GetLastNonZeroMoveInput();
-            moveDirection = lastMoveInput.x * camTran.right + lastMoveInput.y * normalizedCamForward;
+            moveDirection = lastMoveInput.x * normalizedCamRight + lastMoveInput.y * normalizedCamForward;
 
             targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
         }
@@ -133,7 +137,11 @@ public class StretchController : MonoBehaviour
         {
             Vector3 direction = moveDirection;
             Vector3 front = stretchBody.GetFrontBodyForward();
+            front.y = 0f;
+            front.Normalize();
             Vector3 right = stretchBody.GetFrontBodyRight();
+            right.y = 0f;
+            right.Normalize();
 
             // Remove move input in stretch direction
             if (Vector3.Dot(moveDirection, front) > 0f)

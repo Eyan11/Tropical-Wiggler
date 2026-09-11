@@ -1,9 +1,13 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Collections;
+using System;
 
 [RequireComponent(typeof(InputManager))]
 public class StretchBody : MonoBehaviour
 {
+    public event Action OnContractionFinishedEvent; 
+
     [Header ("References")]
     [SerializeField] private Transform tailAndBodyTran;
     [SerializeField] private Transform tailTran;
@@ -46,15 +50,17 @@ public class StretchBody : MonoBehaviour
     [SerializeField] private float distanceConstraintTolerance = 0.01f;
     private readonly Collider[] collisionResults = new Collider[16];
 
+    [Header ("Contraction Settings")]
+    [SerializeField] private float contractionSpeed = 40f;
+
+
     private void Awake()
     {
         curDistance = maxDistance;
         bodyParent = tailAndBodyTran.parent;
         tailAndBodyStartPos = tailAndBodyTran.localPosition;
         tailCollider = tailTran.GetComponent<SphereCollider>();
-
         input = GetComponent<InputManager>();
-        input.OnStretchInputChanged += OnStretchInputChanged;
 
         // Get all siblings of tail (body sphere's 1 - 14)
         foreach (Transform child in tailTran.parent.transform)
@@ -67,24 +73,24 @@ public class StretchBody : MonoBehaviour
         }
     }
 
-    private void OnStretchInputChanged(bool _isStretching)
+    private void OnEnable()
     {
-        isStretching = _isStretching;
+        StretchController.OnStretchStartedEvent += OnStretchStarted;
+    }
+
+    private void OnDisable()
+    {
+        StretchController.OnStretchStartedEvent -= OnStretchStarted;
+    }
+
+    private void OnStretchStarted()
+    {
+        isStretching = true;
         if (isStretching)
         {
             hasSpawnedAllBodies = false;
             numSpawnedBodies = 0;
             tailAndBodyTran.SetParent(null);
-        }
-        else
-        {
-            tailAndBodyTran.SetParent(bodyParent);
-            tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
-        
-            foreach (Transform body in bodyTran) // Hide all body spheres
-            {
-                body.gameObject.SetActive(false);
-            }
         }
     }
 
@@ -321,7 +327,8 @@ public class StretchBody : MonoBehaviour
             float worldRadius = sphereColl.radius * body.lossyScale.x;
 
             // Get how many colliders are overlapping with the body sphere
-            int hitCount = Physics.OverlapSphereNonAlloc(worldCenter, worldRadius + collisionOffset, collisionResults, collisionMask, QueryTriggerInteraction.Ignore);
+            int hitCount = Physics.OverlapSphereNonAlloc(worldCenter, worldRadius + collisionOffset, 
+                collisionResults, collisionMask, QueryTriggerInteraction.Ignore);
             bool foundOverlap = false;
 
             // Resolve all collisions with current body's position by moving it outside of the collider it's overlapping with
@@ -370,5 +377,62 @@ public class StretchBody : MonoBehaviour
     {
         if (numSpawnedBodies < 1) return Quaternion.identity;
         return bodyTran[0].rotation;
+    }
+
+    // Moves each body sphere towards the body in front of it and sets visibility to false when it reaches the head
+    public IEnumerator ContractBodyForward()
+    {
+        isStretching = false; // Stop moving/rotating bodies outside of this coroutine
+        int firstBodyIndex = 0;
+        while(true)
+        {
+            Transform body;
+            Transform nextBody = headTran;
+            int bodiesToHide = 0;
+
+            // Move bodies towards body in front of it, starting closest to head
+            for (int i = firstBodyIndex; i < numSpawnedBodies; i++)
+            {
+                body = bodyTran[i];
+                // MoveTowards() never overshoots
+                body.position = Vector3.MoveTowards(body.position, nextBody.position, contractionSpeed * Time.deltaTime);
+
+                // If this is is the closest body to head and is at head location, mark it for removal
+                if (i <= firstBodyIndex + bodiesToHide && 
+                    Vector3.Distance(body.position, nextBody.position) <= 0.01f)
+                {
+                    body.position = headTran.position;
+                    bodiesToHide++;
+                }
+                nextBody = body;
+            }
+
+            // Hide bodies that have reached the head
+            while (bodiesToHide > 0)
+            {
+                bodyTran[firstBodyIndex].gameObject.SetActive(false);
+                bodiesToHide--;
+                firstBodyIndex++;
+                // Don't decrement numSpawnedBodies to track how many WERE spawned during stretch
+            }
+
+            // Get body in front of tail
+            if (numSpawnedBodies > 0) nextBody = bodyTran[numSpawnedBodies - 1];
+            else nextBody = headTran;
+
+            // Move tail towards next body, when tail reaches head, end contraction
+            tailTran.position = Vector3.MoveTowards(tailTran.position, nextBody.position, contractionSpeed * Time.deltaTime);
+            if (firstBodyIndex >= numSpawnedBodies && 
+                Vector3.Distance(tailTran.position, nextBody.position) <= 0.1f)
+            {
+                tailAndBodyTran.SetParent(bodyParent);
+                tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
+                tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                OnContractionFinishedEvent?.Invoke();
+                yield break; // Exit coroutine
+            }
+
+            yield return null; // Continue contraction next frame
+        }
     }
 }

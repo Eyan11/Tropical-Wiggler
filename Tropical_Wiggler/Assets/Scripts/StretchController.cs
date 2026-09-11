@@ -1,10 +1,14 @@
 using UnityEngine;
+using System;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(InputManager))]
 [RequireComponent(typeof(StretchBody))]
 public class StretchController : MonoBehaviour
 {
+    public static event Action OnStretchStartedEvent;
+    public static event Action OnContractionFinishedEvent;
+
     [Header("Stretch Movement Settings")]
     [SerializeField] private float maxSpeed = 9f;
     [Tooltip("Defines the multiplier to max speed when at max stretch distance. Y = 1 means speed is maxSpeed, Y = 0 means speed is 0. X = 0 means move direction is perpendicular to stretch direction, X = 1 means move direction is in the same direction as stretch direction.")]
@@ -49,29 +53,54 @@ public class StretchController : MonoBehaviour
         body = GetComponent<Rigidbody>();
         stretchBody = GetComponent<StretchBody>();
         input = GetComponent<InputManager>();
+    }
+
+    private void OnEnable()
+    {
         input.OnStretchInputChanged += OnStretchInputChanged;
+        stretchBody.OnContractionFinishedEvent += OnContractionFinished;
+    }
+
+    private void OnDisable()
+    {
+        input.OnStretchInputChanged -= OnStretchInputChanged;
+        stretchBody.OnContractionFinishedEvent -= OnContractionFinished;
     }
 
     private void OnStretchInputChanged(bool isStretching)
     {
-        if (isStretching)
+        // Player is NOT stretching and presses stretch input
+        if (isStretching && currentStretchState == StretchState.Disabled)
         {
             currentStretchState = StretchState.Stretching;
+            OnStretchStartedEvent?.Invoke();
         }
-        else
+        // Player is stretching and releases stretch input while grounded
+        else if (!isStretching && isGrounded && currentStretchState == StretchState.Stretching)
         {
-            currentStretchState = StretchState.Disabled; // Temporary
-            // TODO: Set to contracting forward/backward
+            currentStretchState = StretchState.ContractingForward;
+            stretchBody.StartCoroutine(stretchBody.ContractBodyForward());
+        }
+        // Player is stretching and releases stretch input while NOT grounded
+        else if (!isStretching && !isGrounded && currentStretchState == StretchState.Stretching)
+        {
+            currentStretchState = StretchState.ContractingBackward;
+            //stretchBody.StartCoroutine(stretchBody.ContractBodyBackward());
         }
     }
 
+    private void OnContractionFinished()
+    {
+        currentStretchState = StretchState.Disabled;
+        OnContractionFinishedEvent?.Invoke();
+    }
 
 
     // *** Movement and Rotation ******************************************************************
     
     private void Update()
     {
-        if (currentStretchState == StretchState.Disabled) return;
+        if (currentStretchState != StretchState.Stretching) return;
         RotateTowardsInputDirection();
 
         // Handle ground check
@@ -85,7 +114,7 @@ public class StretchController : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (currentStretchState == StretchState.Disabled) return;
+        if (currentStretchState != StretchState.Stretching) return;
         MovePlayer();
     }
 

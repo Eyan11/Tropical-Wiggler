@@ -2776,7 +2776,7 @@ GameObject:
   m_Component:
   - component: {fileID: 428981704}
   m_Layer: 3
-  m_Name: GroundCheck
+  m_Name: GroundCheckOrigin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3001,6 +3001,7 @@ MonoBehaviour:
   maxCollisionSlideIterations: 3
   maxDistanceConstraintIterations: 5
   distanceConstraintTolerance: 0.01
+  contractionSpeed: 40
 --- !u!1 &441401922
 GameObject:
   m_ObjectHideFlags: 0

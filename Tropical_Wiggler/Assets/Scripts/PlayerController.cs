@@ -24,10 +24,21 @@ public class PlayerController : MonoBehaviour
     {
         camTran = Camera.main.transform;
         body = GetComponent<Rigidbody>();
-
         input = GetComponent<InputManager>();
+    }
+
+    private void OnEnable()
+    {
         input.OnMoveInputCanceled += OnMoveInputCanceled;
-        input.OnStretchInputChanged += OnStretchInputChanged;
+        StretchController.OnStretchStartedEvent += OnStretchStarted;
+        StretchController.OnContractionFinishedEvent += OnContractionFinished;
+    }
+
+    private void OnDisable()
+    {
+        input.OnMoveInputCanceled -= OnMoveInputCanceled;
+        StretchController.OnStretchStartedEvent -= OnStretchStarted;
+        StretchController.OnContractionFinishedEvent -= OnContractionFinished;
     }
 
     private void OnMoveInputCanceled()
@@ -35,11 +46,17 @@ public class PlayerController : MonoBehaviour
         isMoving = false; // Make player rotate towards input direction before allowing movement
     }
 
-    private void OnStretchInputChanged(bool isStretching)
+    // Disables movement when stretching starts
+    private void OnStretchStarted()
     {
-        isEnabled = !isStretching;
-        // Reset move direction to current orientation
-        if (isEnabled) moveDirection = orientationTran.forward;
+        isEnabled = false;
+    }
+
+    // Enables movement when contraction finishes
+    private void OnContractionFinished()
+    {
+        moveDirection = orientationTran.forward;
+        isEnabled = true;
     }
 
 

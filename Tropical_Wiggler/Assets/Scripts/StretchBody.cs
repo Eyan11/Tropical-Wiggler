@@ -22,6 +22,7 @@ public class StretchBody : MonoBehaviour
     [SerializeField] private float maxDistance = 0.8f;
     [SerializeField] private float minDistance = 0.3f;
     [SerializeField] private float rotationSpeed = 100f;
+    [SerializeField] private float tailRotationSpeed = 0.8f;
     [SerializeField] private float maxStretchDistanceThreshold = 0.3f;
     [Tooltip ("The number of times the body position is set and constrained per frame (where setting and constraining both have collision checks afterwards). The algorithm will always execute all iterations and never exit early.")]
     [SerializeField] private int constrainIterations = 3;
@@ -95,7 +96,7 @@ public class StretchBody : MonoBehaviour
         if (!hasSpawnedAllBodies) TrySpawnNewBody();
 
         MoveBodyPositions();
-        RotateBodies();
+        RotateBodiesAndTail();
         UpdateCurrentDistance(); // Update distance between body spheres
     }
     
@@ -124,18 +125,27 @@ public class StretchBody : MonoBehaviour
     }
 
     // Smoothly rotates all body spheres towards the body in front of it, starting with the body behind the head and ending with the body in front of the tail.
-    private void RotateBodies()
+    private void RotateBodiesAndTail()
     {
         Transform body;
         Transform nextBody = headTran;
 
+        // Rotate all bodies towards the body in front of it
         for (int i = 0; i < numSpawnedBodies; i++)
         {
             body = bodyTran[i];
-            Vector3 directionToNextBody = nextBody.position - body.position;
-            Quaternion targetRotation = Quaternion.LookRotation(directionToNextBody); // Rotation towards body in front of it
+            Vector3 direction = nextBody.position - body.position;
+            Quaternion targetRotation = Quaternion.LookRotation(direction); // Rotation towards body in front of it
             body.rotation = Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             nextBody = body;
+        }
+
+        // Rotate tail towards the last body
+        if (hasSpawnedAllBodies)
+        {
+            Vector3 direction = bodyTran[^1].position - tailTran.position;
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            tailTran.rotation = Quaternion.Slerp(tailTran.rotation, targetRotation, tailRotationSpeed * Time.deltaTime);
         }
     }
 

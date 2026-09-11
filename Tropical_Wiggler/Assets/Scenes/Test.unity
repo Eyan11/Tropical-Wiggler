@@ -2952,6 +2952,7 @@ MonoBehaviour:
   maxDistance: 0.8
   minDistance: 0.3
   rotationSpeed: 100
+  tailRotationSpeed: 5
   maxStretchDistanceThreshold: 0.3
   constrainIterations: 3
   resetPositionMoveSpeed: 100
@@ -2961,7 +2962,7 @@ MonoBehaviour:
   collisionOffset: 0.01
   maxCollisionResolveIterations: 2
   maxCollisionSlideIterations: 3
-  distanceConstraintIterations: 5
+  maxDistanceConstraintIterations: 5
   distanceConstraintTolerance: 0.01
 --- !u!1 &441401922
 GameObject:

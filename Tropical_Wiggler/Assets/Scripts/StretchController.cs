@@ -14,6 +14,10 @@ public class StretchController : MonoBehaviour
     [SerializeField] private float maxStretchOpposingForce = 30f;
     private Vector3 moveDirection = Vector3.zero;
     private StretchState currentStretchState = StretchState.Disabled;
+    private Rigidbody body;
+    private Transform camTran;
+    private InputManager input;
+    private StretchBody stretchBody;
 
     [Header("Stretch Orientation Settings")]
     [SerializeField] private Transform orientationTran;
@@ -22,10 +26,14 @@ public class StretchController : MonoBehaviour
     [SerializeField] private float maxRotation = 50f;
     private float rotationSpeed;
     private Quaternion targetRotation = Quaternion.identity;
-    private Transform camTran;
-    private Rigidbody body;
-    private InputManager input;
-    private StretchBody stretchBody;
+
+    [Header("Retraction Settings")]
+    [SerializeField] private Transform groundCheckTran;
+    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private float groundCheckFrequency = 0.1f;
+    [SerializeField] private float groundCheckDistance = 0.15f;
+    private float groundCheckTimer = 0f;
+    private bool isGrounded = true;
 
     private enum StretchState
     {
@@ -65,6 +73,14 @@ public class StretchController : MonoBehaviour
     {
         if (currentStretchState == StretchState.Disabled) return;
         RotateTowardsInputDirection();
+
+        // Handle ground check
+        groundCheckTimer += Time.deltaTime;
+        if (groundCheckTimer >= groundCheckFrequency)
+        {
+            isGrounded = IsGrounded();
+            groundCheckTimer = 0f;
+        }
     }
 
     private void FixedUpdate()
@@ -73,6 +89,8 @@ public class StretchController : MonoBehaviour
         MovePlayer();
     }
 
+    // Rotates the player towards camera relative input direction.
+    //  Rotation is limited to maxRotation degrees away from the front body's rotation
     private void RotateTowardsInputDirection()
     {
         rotationSpeed += rotationAcceleration * Time.deltaTime;
@@ -121,6 +139,8 @@ public class StretchController : MonoBehaviour
         orientationTran.rotation = Quaternion.RotateTowards(orientationTran.rotation, targetRotation, dir * rotationSpeed * Time.deltaTime);
     }
 
+    // Moves the player towards camera relative input direction.
+    //  Limits movement when at max stretch distance and deaccelerates when no input is given.
     private void MovePlayer()
     {
         // Deaaccelerate when no input until reaching speed of 0
@@ -176,5 +196,11 @@ public class StretchController : MonoBehaviour
             body.linearVelocity += acceleration;
             body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
         }
+    }
+
+    // Returns true if head is grounded
+    private bool IsGrounded()
+    {
+        return Physics.Raycast(groundCheckTran.position, Vector3.down, groundCheckDistance, groundLayer);
     }
 }

@@ -2766,6 +2766,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 891803600}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &428981703
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 428981704}
+  m_Layer: 3
+  m_Name: GroundCheckOrigin
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &428981704
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 428981703}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.7, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 891803600}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &437369405
 GameObject:
   m_ObjectHideFlags: 0
@@ -2920,6 +2951,12 @@ MonoBehaviour:
   maxRotationSpeed: 200
   rotationAcceleration: 200
   maxRotation: 50
+  groundCheckTran: {fileID: 428981704}
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 1
+  groundCheckFrequency: 0.1
+  groundCheckDistance: 0.15
 --- !u!114 &437369410
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2947,11 +2984,13 @@ MonoBehaviour:
   tailAndBodyTran: {fileID: 2032349085}
   tailTran: {fileID: 194090931}
   headTran: {fileID: 891803600}
+  playerTran: {fileID: 437369406}
   maxRotation: 60
   resetRotation: 55
   maxDistance: 0.8
   minDistance: 0.3
   rotationSpeed: 100
+  tailRotationSpeed: 5
   maxStretchDistanceThreshold: 0.3
   constrainIterations: 3
   resetPositionMoveSpeed: 100
@@ -2961,8 +3000,9 @@ MonoBehaviour:
   collisionOffset: 0.01
   maxCollisionResolveIterations: 2
   maxCollisionSlideIterations: 3
-  distanceConstraintIterations: 5
+  maxDistanceConstraintIterations: 5
   distanceConstraintTolerance: 0.01
+  contractionSpeed: 40
 --- !u!1 &441401922
 GameObject:
   m_ObjectHideFlags: 0
@@ -5640,6 +5680,7 @@ Transform:
   - {fileID: 890556832}
   - {fileID: 645239255}
   - {fileID: 423910800}
+  - {fileID: 428981704}
   m_Father: {fileID: 1814000418}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!135 &891803601

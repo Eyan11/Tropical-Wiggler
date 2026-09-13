@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections;
 using System;
 
-[RequireComponent(typeof(InputManager))]
 public class StretchBody : MonoBehaviour
 {
     public event Action OnContractionFinishedEvent; 
@@ -12,9 +11,9 @@ public class StretchBody : MonoBehaviour
     [SerializeField] private Transform tailAndBodyTran;
     [SerializeField] private Transform tailTran;
     [SerializeField] private Transform headTran;
+    [SerializeField] private Transform playerTran;
     private List<Transform> bodyTran = new List<Transform>();
     private List<SphereCollider> bodyColl = new List<SphereCollider>();
-    private InputManager input;
     private Transform bodyParent;
     private Vector3 tailAndBodyStartPos;
     private SphereCollider tailCollider;
@@ -60,7 +59,6 @@ public class StretchBody : MonoBehaviour
         bodyParent = tailAndBodyTran.parent;
         tailAndBodyStartPos = tailAndBodyTran.localPosition;
         tailCollider = tailTran.GetComponent<SphereCollider>();
-        input = GetComponent<InputManager>();
 
         // Get all siblings of tail (body sphere's 1 - 14)
         foreach (Transform child in tailTran.parent.transform)
@@ -417,14 +415,72 @@ public class StretchBody : MonoBehaviour
             }
 
             // Get body in front of tail
-            if (numSpawnedBodies > 0) nextBody = bodyTran[numSpawnedBodies - 1];
-            else nextBody = headTran;
+            if (firstBodyIndex >= numSpawnedBodies) nextBody = headTran;
+            else nextBody = bodyTran[numSpawnedBodies - 1];
 
             // Move tail towards next body, when tail reaches head, end contraction
             tailTran.position = Vector3.MoveTowards(tailTran.position, nextBody.position, contractionSpeed * Time.deltaTime);
             if (firstBodyIndex >= numSpawnedBodies && 
-                Vector3.Distance(tailTran.position, nextBody.position) <= 0.1f)
+                Vector3.Distance(tailTran.position, headTran.position) <= 0.5f)
             {
+                tailAndBodyTran.SetParent(bodyParent);
+                tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
+                tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                OnContractionFinishedEvent?.Invoke();
+                yield break; // Exit coroutine
+            }
+
+            yield return null; // Continue contraction next frame
+        }
+    }
+
+    // Moves each body sphere towards the body behind it and sets visibility to false when it reaches the tail
+    public IEnumerator ContractBodyBackward()
+    {
+        isStretching = false; // Stop moving/rotating bodies outside of this coroutine
+        int firstBodyIndex = numSpawnedBodies - 1;
+        while(true)
+        {
+            Transform body;
+            Transform nextBody = tailTran;
+            int bodiesToHide = 0;
+
+            // Move bodies towards body in front of it, starting closest to tail
+            for (int i = firstBodyIndex; i >= 0; i--)
+            {
+                body = bodyTran[i];
+                // MoveTowards() never overshoots
+                body.position = Vector3.MoveTowards(body.position, nextBody.position, contractionSpeed * Time.deltaTime);
+
+                // If this is is the closest body to tail and is at tail location, mark it for removal
+                if (i >= firstBodyIndex - bodiesToHide && 
+                    Vector3.Distance(body.position, nextBody.position) <= 0.01f)
+                {
+                    body.position = tailTran.position;
+                    bodiesToHide++;
+                }
+                nextBody = body;
+            }
+
+            // Hide bodies that have reached the tail
+            while (bodiesToHide > 0)
+            {
+                bodyTran[firstBodyIndex].gameObject.SetActive(false);
+                bodiesToHide--;
+                firstBodyIndex--;
+                // Don't decrement numSpawnedBodies to track how many WERE spawned during stretch
+            }
+
+            // Get body behind head
+            if (firstBodyIndex < 0) nextBody = tailTran;
+            else nextBody = bodyTran[0];
+
+            // Move head towards next body, when head reaches tail, end contraction
+            playerTran.position = Vector3.MoveTowards(playerTran.position, nextBody.position, contractionSpeed * Time.deltaTime);
+            if (firstBodyIndex < 0 && 
+                Vector3.Distance(playerTran.position, tailTran.position) <= 0.5f)
+            {
+                playerTran.SetPositionAndRotation(tailAndBodyTran.position, tailAndBodyTran.rotation);
                 tailAndBodyTran.SetParent(bodyParent);
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);

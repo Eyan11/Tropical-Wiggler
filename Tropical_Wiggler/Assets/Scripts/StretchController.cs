@@ -78,14 +78,16 @@ public class StretchController : MonoBehaviour
         // Player is stretching and releases stretch input while grounded
         else if (!isStretching && isGrounded && currentStretchState == StretchState.Stretching)
         {
+            body.linearVelocity = Vector3.zero;
             currentStretchState = StretchState.ContractingForward;
             stretchBody.StartCoroutine(stretchBody.ContractBodyForward());
         }
         // Player is stretching and releases stretch input while NOT grounded
         else if (!isStretching && !isGrounded && currentStretchState == StretchState.Stretching)
         {
+            body.linearVelocity = Vector3.zero;
             currentStretchState = StretchState.ContractingBackward;
-            //stretchBody.StartCoroutine(stretchBody.ContractBodyBackward());
+            stretchBody.StartCoroutine(stretchBody.ContractBodyBackward());
         }
     }
 

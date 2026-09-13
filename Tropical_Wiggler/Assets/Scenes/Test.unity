@@ -2984,6 +2984,7 @@ MonoBehaviour:
   tailAndBodyTran: {fileID: 2032349085}
   tailTran: {fileID: 194090931}
   headTran: {fileID: 891803600}
+  playerTran: {fileID: 437369406}
   maxRotation: 60
   resetRotation: 55
   maxDistance: 0.8

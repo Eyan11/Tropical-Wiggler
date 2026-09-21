@@ -39,6 +39,10 @@ public class StretchController : MonoBehaviour
     private float groundCheckTimer = 0f;
     private bool isGrounded = true;
 
+    [Header ("Animation Settings")]
+    [SerializeField] private Animator headAnim;
+    private int speedHash = Animator.StringToHash("speed");
+
     private enum StretchState
     {
         Disabled,
@@ -67,23 +71,23 @@ public class StretchController : MonoBehaviour
         stretchBody.OnContractionFinishedEvent -= OnContractionFinished;
     }
 
-    private void OnStretchInputChanged(bool isStretching)
+    private void OnStretchInputChanged(bool isStretchInputDown)
     {
         // Player is NOT stretching and presses stretch input
-        if (isStretching && currentStretchState == StretchState.Disabled)
+        if (isStretchInputDown && currentStretchState == StretchState.Disabled)
         {
             currentStretchState = StretchState.Stretching;
             OnStretchStartedEvent?.Invoke();
         }
         // Player is stretching and releases stretch input while grounded
-        else if (!isStretching && isGrounded && currentStretchState == StretchState.Stretching)
+        else if (!isStretchInputDown && isGrounded && currentStretchState == StretchState.Stretching)
         {
             body.linearVelocity = Vector3.zero;
             currentStretchState = StretchState.ContractingForward;
             stretchBody.StartCoroutine(stretchBody.ContractBodyForward());
         }
         // Player is stretching and releases stretch input while NOT grounded
-        else if (!isStretching && !isGrounded && currentStretchState == StretchState.Stretching)
+        else if (!isStretchInputDown && !isGrounded && currentStretchState == StretchState.Stretching)
         {
             body.linearVelocity = Vector3.zero;
             currentStretchState = StretchState.ContractingBackward;
@@ -227,6 +231,9 @@ public class StretchController : MonoBehaviour
             body.linearVelocity += acceleration;
             body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
         }
+
+        // Update animation speed based on current velocity
+        headAnim.SetFloat(speedHash, body.linearVelocity.magnitude / maxSpeed);
     }
 
     // Returns true if head is grounded

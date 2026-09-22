@@ -55,6 +55,8 @@ public class PlayerController : MonoBehaviour
     private void OnStretchStarted()
     {
         isEnabled = false;
+        tailAnim.SetFloat(speedHash, 0f);
+        // Don't reset head anim speed, it will immediately update in StretchController script
     }
 
     // Enables movement when contraction finishes

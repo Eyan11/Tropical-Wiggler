@@ -84,6 +84,7 @@ public class StretchController : MonoBehaviour
         {
             body.linearVelocity = Vector3.zero;
             currentStretchState = StretchState.ContractingForward;
+            headAnim.SetFloat(speedHash, 0f); // Head is not moving
             stretchBody.StartCoroutine(stretchBody.ContractBodyForward());
         }
         // Player is stretching and releases stretch input while NOT grounded
@@ -91,6 +92,7 @@ public class StretchController : MonoBehaviour
         {
             body.linearVelocity = Vector3.zero;
             currentStretchState = StretchState.ContractingBackward;
+            headAnim.SetFloat(speedHash, 1f); // Head is moving towards tail, so make head legs animate
             stretchBody.StartCoroutine(stretchBody.ContractBodyBackward());
         }
     }
@@ -98,6 +100,7 @@ public class StretchController : MonoBehaviour
     private void OnContractionFinished()
     {
         currentStretchState = StretchState.Disabled;
+        headAnim.SetFloat(speedHash, 0f);
         OnContractionFinishedEvent?.Invoke();
     }
 

@@ -14,6 +14,8 @@ public class StretchBody : MonoBehaviour
     [SerializeField] private Transform playerTran;
     private Animator tailAnim;
     private int speedHash = Animator.StringToHash("speed");
+    private int bounceForwardHash = Animator.StringToHash("bounce_forward");
+    private int bounceBackwardHash = Animator.StringToHash("bounce_backward");
     private List<Transform> bodyTran = new List<Transform>();
     private List<SphereCollider> bodyColl = new List<SphereCollider>();
     private Transform bodyParent;
@@ -440,9 +442,12 @@ public class StretchBody : MonoBehaviour
                 tailAndBodyTran.SetParent(bodyParent);
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+
                 SoundManager.Instance.PlayOneShotSFX(0, 0.1f); // Play doink sound when tail reaches head
-                OnContractionFinishedEvent?.Invoke();
                 tailAnim.SetFloat(speedHash, 0f); // Tail reached head and should stop animating legs
+                tailAnim.SetTrigger(bounceForwardHash);
+
+                OnContractionFinishedEvent?.Invoke();
                 yield break; // Exit coroutine
             }
 
@@ -506,7 +511,10 @@ public class StretchBody : MonoBehaviour
                 tailAndBodyTran.SetParent(bodyParent);
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                
                 SoundManager.Instance.PlayOneShotSFX(0, 0.1f); // Play doink sound when head reaches tail
+                tailAnim.SetTrigger(bounceBackwardHash);
+
                 OnContractionFinishedEvent?.Invoke();
                 yield break; // Exit coroutine
             }

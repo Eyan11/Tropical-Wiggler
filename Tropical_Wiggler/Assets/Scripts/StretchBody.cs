@@ -125,6 +125,7 @@ public class StretchBody : MonoBehaviour
             SetBodyPosition(newBody, nextBody);
 
             newBody.gameObject.SetActive(true);
+            SoundManager.Instance.PlayBodySFX(numSpawnedBodies); // Play SFX for this body index
             numSpawnedBodies++;
 
             if (numSpawnedBodies >= bodyTran.Count) hasSpawnedAllBodies = true;
@@ -418,6 +419,10 @@ public class StretchBody : MonoBehaviour
             while (bodiesToHide > 0)
             {
                 bodyTran[firstBodyIndex].gameObject.SetActive(false);
+                if (firstBodyIndex % 2 != 0) // Play every other SFX
+                {
+                    SoundManager.Instance.PlayBodySFX(firstBodyIndex);
+                }   
                 bodiesToHide--;
                 firstBodyIndex++;
                 // Don't decrement numSpawnedBodies to track how many WERE spawned during stretch
@@ -435,6 +440,7 @@ public class StretchBody : MonoBehaviour
                 tailAndBodyTran.SetParent(bodyParent);
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                SoundManager.Instance.PlayOneShotSFX(0, 0.1f); // Play doink sound when tail reaches head
                 OnContractionFinishedEvent?.Invoke();
                 tailAnim.SetFloat(speedHash, 0f); // Tail reached head and should stop animating legs
                 yield break; // Exit coroutine
@@ -478,6 +484,10 @@ public class StretchBody : MonoBehaviour
             while (bodiesToHide > 0)
             {
                 bodyTran[firstBodyIndex].gameObject.SetActive(false);
+                if (firstBodyIndex % 2 != 0) // Play every other SFX
+                {
+                    SoundManager.Instance.PlayBodySFX(firstBodyIndex);
+                }   
                 bodiesToHide--;
                 firstBodyIndex--;
                 // Don't decrement numSpawnedBodies to track how many WERE spawned during stretch
@@ -496,6 +506,7 @@ public class StretchBody : MonoBehaviour
                 tailAndBodyTran.SetParent(bodyParent);
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                SoundManager.Instance.PlayOneShotSFX(0, 0.1f); // Play doink sound when head reaches tail
                 OnContractionFinishedEvent?.Invoke();
                 yield break; // Exit coroutine
             }

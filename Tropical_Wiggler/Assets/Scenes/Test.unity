@@ -2581,7 +2581,7 @@ SphereCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 516012400}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: b91b2230060fc604282cb46b306f8132, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -6663,6 +6663,68 @@ Transform:
   - {fileID: 1164907657}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1900134219
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1900134220}
+  - component: {fileID: 1900134221}
+  m_Layer: 0
+  m_Name: SoundManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1900134220
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1900134219}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1900134221
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1900134219}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8232cd2639d8214db121658772d41b0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SoundManager
+  bodySFXClips:
+  - {fileID: 8300000, guid: 3a76ded567baa444b96c78cf1b251e95, type: 3}
+  - {fileID: 8300000, guid: 17a8ec47cce0b0a498ed69259d433167, type: 3}
+  - {fileID: 8300000, guid: b7b06feb535b4c44588c2e0b2b42d175, type: 3}
+  - {fileID: 8300000, guid: 9e4613bd0425b9048b57f3d7e59dd0c9, type: 3}
+  - {fileID: 8300000, guid: 91f62261044a3c045b02818c2224ec39, type: 3}
+  - {fileID: 8300000, guid: 27a964dfbdd28f845a6594cc857bcdc0, type: 3}
+  - {fileID: 8300000, guid: eefa0d2d1e469a04c81adee2e433f84c, type: 3}
+  - {fileID: 8300000, guid: d25d34bbfeee6c94fac2d26e22c11d21, type: 3}
+  - {fileID: 8300000, guid: f5f7441d9cd156d4ba6b874993d5bad5, type: 3}
+  - {fileID: 8300000, guid: b26fae83d2be93e4aaa8afa1a59e4997, type: 3}
+  - {fileID: 8300000, guid: f2151d1eaee537d4ea8c51621118acba, type: 3}
+  - {fileID: 8300000, guid: d3764aebedbbfc84cb1021d8ee03d303, type: 3}
+  - {fileID: 8300000, guid: bf76cb3aba870c94784fc6dc03d85d35, type: 3}
+  - {fileID: 8300000, guid: ddf0e3b37bb384f499c1af368a6a5a88, type: 3}
+  bodySFXVolume: 0.5
+  oneShotSFXClipsArray:
+  - {fileID: 8300000, guid: 02bfb403f92742d418065e861910856b, type: 3}
 --- !u!1 &1988754168
 GameObject:
   m_ObjectHideFlags: 0
@@ -7133,6 +7195,7 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 1900134220}
   - {fileID: 330585546}
   - {fileID: 410087041}
   - {fileID: 832575519}

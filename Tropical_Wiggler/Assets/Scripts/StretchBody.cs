@@ -12,6 +12,8 @@ public class StretchBody : MonoBehaviour
     [SerializeField] private Transform tailTran;
     [SerializeField] private Transform headTran;
     [SerializeField] private Transform playerTran;
+    private Animator tailAnim;
+    private int speedHash = Animator.StringToHash("speed");
     private List<Transform> bodyTran = new List<Transform>();
     private List<SphereCollider> bodyColl = new List<SphereCollider>();
     private Transform bodyParent;
@@ -59,6 +61,7 @@ public class StretchBody : MonoBehaviour
         bodyParent = tailAndBodyTran.parent;
         tailAndBodyStartPos = tailAndBodyTran.localPosition;
         tailCollider = tailTran.GetComponent<SphereCollider>();
+        tailAnim = tailTran.GetComponent<Animator>();
 
         // Get all siblings of tail (body sphere's 1 - 14)
         foreach (Transform child in tailTran.parent.transform)
@@ -150,6 +153,10 @@ public class StretchBody : MonoBehaviour
             Vector3 direction = bodyTran[^1].position - tailTran.position;
             Quaternion targetRotation = Quaternion.LookRotation(direction);
             tailTran.rotation = Quaternion.Slerp(tailTran.rotation, targetRotation, tailRotationSpeed * Time.deltaTime);
+            
+            // Update tail animation speed based onsize of the angle between current and target rotation
+            float angle = Quaternion.Angle(tailTran.rotation, targetRotation);
+            tailAnim.SetFloat(speedHash, Mathf.Min(0.5f, angle / 15f)); // Cap at 0.5 speed and slow down to 0 when angle is less than 15 degrees
         }
     }
 
@@ -381,7 +388,9 @@ public class StretchBody : MonoBehaviour
     public IEnumerator ContractBodyForward()
     {
         isStretching = false; // Stop moving/rotating bodies outside of this coroutine
+        tailAnim.SetFloat(speedHash, 1f); // Tail is moving towards head, so make tail legs animate
         int firstBodyIndex = 0;
+
         while(true)
         {
             Transform body;
@@ -427,6 +436,7 @@ public class StretchBody : MonoBehaviour
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
                 OnContractionFinishedEvent?.Invoke();
+                tailAnim.SetFloat(speedHash, 0f); // Tail reached head and should stop animating legs
                 yield break; // Exit coroutine
             }
 
@@ -438,7 +448,9 @@ public class StretchBody : MonoBehaviour
     public IEnumerator ContractBodyBackward()
     {
         isStretching = false; // Stop moving/rotating bodies outside of this coroutine
+        tailAnim.SetFloat(speedHash, 0f); // Tail is not moving
         int firstBodyIndex = numSpawnedBodies - 1;
+
         while(true)
         {
             Transform body;

@@ -20,6 +20,11 @@ public class PlayerController : MonoBehaviour
     private Vector3 moveDirection = Vector3.zero;
     private bool isEnabled = true; // False if in stretch mode
 
+    [Header ("Animation Settings")]
+    [SerializeField] private Animator headAnim;
+    [SerializeField] private Animator tailAnim;
+    private int speedHash = Animator.StringToHash("speed");
+
     private void Awake()
     {
         camTran = Camera.main.transform;
@@ -50,6 +55,8 @@ public class PlayerController : MonoBehaviour
     private void OnStretchStarted()
     {
         isEnabled = false;
+        tailAnim.SetFloat(speedHash, 0f);
+        // Don't reset head anim speed, it will immediately update in StretchController script
     }
 
     // Enables movement when contraction finishes
@@ -66,6 +73,10 @@ public class PlayerController : MonoBehaviour
     {
         if (!isEnabled) return; // Let StretchController handle stretch rotation
         RotateTowardsInputDirection();
+
+        // Update animation speed based on current velocity
+        headAnim.SetFloat(speedHash, body.linearVelocity.magnitude / maxSpeed);
+        tailAnim.SetFloat(speedHash, body.linearVelocity.magnitude / maxSpeed);
     }
 
     private void FixedUpdate()

@@ -12,6 +12,7 @@ public class StretchBody : MonoBehaviour
     [SerializeField] private Transform tailTran;
     [SerializeField] private Transform headTran;
     [SerializeField] private Transform playerTran;
+    [SerializeField] private Transform orientationTran;
     private Animator tailAnim;
     private int speedHash = Animator.StringToHash("speed");
     private int bounceForwardHash = Animator.StringToHash("bounce_forward");
@@ -119,11 +120,13 @@ public class StretchBody : MonoBehaviour
         else nextBody = headTran;
 
         float distance = Vector3.Distance(tailTran.position, nextBody.position);
-        if (distance > maxDistance) // Spawn a new body sphere at the tail's position
+        if (distance > maxDistance + 0.1f) // Spawn a new body sphere at the tail's position
         {
             Transform newBody = bodyTran[numSpawnedBodies];
 
-            newBody.SetPositionAndRotation(tailTran.position, nextBody.rotation);
+            Vector3 dirToTail = (tailTran.position - nextBody.position).normalized;
+            Vector3 spawnPos = nextBody.position + (dirToTail * maxDistance);
+            newBody.SetPositionAndRotation(spawnPos, nextBody.rotation);
             SetBodyPosition(newBody, nextBody);
 
             newBody.gameObject.SetActive(true);
@@ -151,9 +154,9 @@ public class StretchBody : MonoBehaviour
         }
 
         // Rotate tail towards the last body
-        if (hasSpawnedAllBodies)
+        if (numSpawnedBodies > 0)
         {
-            Vector3 direction = bodyTran[^1].position - tailTran.position;
+            Vector3 direction = bodyTran[numSpawnedBodies - 1].position - tailTran.position;
             Quaternion targetRotation = Quaternion.LookRotation(direction);
             tailTran.rotation = Quaternion.Slerp(tailTran.rotation, targetRotation, tailRotationSpeed * Time.deltaTime);
             
@@ -507,10 +510,13 @@ public class StretchBody : MonoBehaviour
             if (firstBodyIndex < 0 && 
                 Vector3.Distance(playerTran.position, tailTran.position) <= 0.5f)
             {
-                playerTran.SetPositionAndRotation(tailAndBodyTran.position, tailAndBodyTran.rotation);
+                Vector3 tailForward = new Vector3(tailTran.forward.x, 0f, tailTran.forward.z).normalized;
+                Quaternion tailRot = Quaternion.LookRotation(tailForward);
+                playerTran.position = tailAndBodyTran.position; // Rotation is always 0, orientation handles head rotation
                 tailAndBodyTran.SetParent(bodyParent);
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                orientationTran.rotation = tailRot; // Position is always 0, playerTran handles head position
                 
                 SoundManager.Instance.PlayOneShotSFX(0, 0.1f); // Play doink sound when head reaches tail
                 tailAnim.SetTrigger(bounceBackwardHash);

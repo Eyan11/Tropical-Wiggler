@@ -21,6 +21,7 @@ public class StretchBody : MonoBehaviour
     private List<SphereCollider> bodyColl = new List<SphereCollider>();
     private Transform bodyParent;
     private Vector3 tailAndBodyStartPos;
+    private float tailToHeadStartDistance;
     private SphereCollider tailCollider;
 
     [Header ("Stretch Settings")]
@@ -63,6 +64,7 @@ public class StretchBody : MonoBehaviour
         curDistance = maxDistance;
         bodyParent = tailAndBodyTran.parent;
         tailAndBodyStartPos = tailAndBodyTran.localPosition;
+        tailToHeadStartDistance = tailAndBodyStartPos.magnitude; // tail and body is offset from head which is (0,0,0)
         tailCollider = tailTran.GetComponent<SphereCollider>();
         tailAnim = tailTran.GetComponent<Animator>();
 
@@ -393,31 +395,66 @@ public class StretchBody : MonoBehaviour
     // Moves each body sphere towards the body in front of it and sets visibility to false when it reaches the head
     public IEnumerator ContractBodyForward()
     {
-        isStretching = false; // Stop moving/rotating bodies outside of this coroutine
+        isStretching = false; // Stop moving/rotating bodies in Update()
         tailAnim.SetFloat(speedHash, 1f); // Tail is moving towards head, so make tail legs animate
         int firstBodyIndex = 0;
+
+        // Record original body positions before contraction
+        Vector3[] bodyPositions = new Vector3[numSpawnedBodies + 1]; // Head + all bodies
+        bodyPositions[0] = headTran.position;
+        for (int i = 1; i < numSpawnedBodies + 1; i++)
+        {
+            bodyPositions[i] = bodyTran[i-1].position;
+        }
+        
+        // index represents the body, value represents the target. First value is head.
+        int[] bodyTargetIndices = new int[numSpawnedBodies + 1];    
+        for (int i = 0; i < numSpawnedBodies + 1; i++)
+        {
+            bodyTargetIndices[i] = i; // Each body targets the position of the body infront of it
+        }
 
         while(true)
         {
             Transform body;
-            Transform nextBody = headTran;
             int bodiesToHide = 0;
 
-            // Move bodies towards body in front of it, starting closest to head
-            for (int i = firstBodyIndex; i < numSpawnedBodies; i++)
+            // Move bodies and tail towards body in front of it, starting closest to head
+            for (int i = firstBodyIndex; i < numSpawnedBodies + 1; i++)
             {
-                body = bodyTran[i];
-                // MoveTowards() never overshoots
-                body.position = Vector3.MoveTowards(body.position, nextBody.position, contractionSpeed * Time.deltaTime);
+                if (i >= numSpawnedBodies) body = tailTran;
+                else body = bodyTran[i];
 
-                // If this is is the closest body to head and is at head location, mark it for removal
-                if (i <= firstBodyIndex + bodiesToHide && 
-                    Vector3.Distance(body.position, nextBody.position) <= 0.01f)
+                Vector3 targetPos = bodyPositions[bodyTargetIndices[i]];
+                float targetDist = Vector3.Distance(body.position, targetPos);
+                float moveDist = contractionSpeed * Time.deltaTime;
+
+                // Exit when body used its full moveDist or reaches the head
+                while(true) // Use loop incase big frame drop causes a large move distance
                 {
-                    body.position = headTran.position;
-                    bodiesToHide++;
+                    // If body is going to overshoot target, move to target and find distance to new target
+                    if (moveDist > targetDist)
+                    {
+                        body.position = targetPos;
+                        bodyTargetIndices[i]--;
+                        moveDist -= targetDist;
+                        
+                        // If body reached head, mark it for removal and stop moving it
+                        if (bodyTargetIndices[i] < 0) {
+                            if (i < numSpawnedBodies) bodiesToHide++; // Don't mark tail for removal
+                            break;
+                        }
+
+                        targetPos = bodyPositions[bodyTargetIndices[i]];
+                        targetDist = Vector3.Distance(body.position, targetPos);
+                    }
+                    // Move body towards target and exit loop
+                    else
+                    {
+                        body.position = Vector3.MoveTowards(body.position, targetPos, moveDist);
+                        break; // Move dist is 0, exit
+                    }
                 }
-                nextBody = body;
             }
 
             // Hide bodies that have reached the head
@@ -433,21 +470,16 @@ public class StretchBody : MonoBehaviour
                 // Don't decrement numSpawnedBodies to track how many WERE spawned during stretch
             }
 
-            // Get body in front of tail
-            if (firstBodyIndex >= numSpawnedBodies) nextBody = headTran;
-            else nextBody = bodyTran[numSpawnedBodies - 1];
-
-            // Move tail towards next body, when tail reaches head, end contraction
-            tailTran.position = Vector3.MoveTowards(tailTran.position, nextBody.position, contractionSpeed * Time.deltaTime);
+            // When all bodies are hidden and tail reaches head, end contraction
             if (firstBodyIndex >= numSpawnedBodies && 
-                Vector3.Distance(tailTran.position, headTran.position) <= 0.5f)
+                Vector3.Distance(tailTran.position, headTran.position) <= tailToHeadStartDistance)
             {
                 tailAndBodyTran.SetParent(bodyParent);
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
-                SoundManager.Instance.PlayOneShotSFX(0, 0.1f); // Play doink sound when tail reaches head
-                tailAnim.SetFloat(speedHash, 0f); // Tail reached head and should stop animating legs
+                SoundManager.Instance.PlayOneShotSFX(0, 0.1f); // Play doink sound
+                tailAnim.SetFloat(speedHash, 0f); // Stop animating legs
                 tailAnim.SetTrigger(bounceForwardHash);
 
                 OnContractionFinishedEvent?.Invoke();
@@ -461,32 +493,69 @@ public class StretchBody : MonoBehaviour
     // Moves each body sphere towards the body behind it and sets visibility to false when it reaches the tail
     public IEnumerator ContractBodyBackward()
     {
-        isStretching = false; // Stop moving/rotating bodies outside of this coroutine
+        isStretching = false; // Stop moving/rotating bodies in Update()
         tailAnim.SetFloat(speedHash, 0f); // Tail is not moving
         int firstBodyIndex = numSpawnedBodies - 1;
+
+        // Record original body positions before contraction
+        Vector3[] bodyPositions = new Vector3[numSpawnedBodies + 1]; // All bodies + tail
+        bodyPositions[^1] = tailTran.position;
+        for (int i = 0; i < numSpawnedBodies; i++)
+        {
+            bodyPositions[i] = bodyTran[i].position;
+        }
+        
+        // index represents the body, value represents the target.
+        int[] bodyTargetIndices = new int[numSpawnedBodies + 1];
+        for (int i = 0; i < numSpawnedBodies + 1; i++)
+        {
+            bodyTargetIndices[i] = i; // Each body targets the position of the body behind it
+        }
+
 
         while(true)
         {
             Transform body;
-            Transform nextBody = tailTran;
             int bodiesToHide = 0;
 
-            // Move bodies towards body in front of it, starting closest to tail
-            for (int i = firstBodyIndex; i >= 0; i--)
+            // Move bodies and head towards body behind it, starting closest to tail
+            for (int i = firstBodyIndex; i >= -1; i--)
             {
-                body = bodyTran[i];
-                // MoveTowards() never overshoots
-                body.position = Vector3.MoveTowards(body.position, nextBody.position, contractionSpeed * Time.deltaTime);
+                if (i <= -1) body = playerTran;
+                else body = bodyTran[i];
 
-                // If this is is the closest body to tail and is at tail location, mark it for removal
-                if (i >= firstBodyIndex - bodiesToHide && 
-                    Vector3.Distance(body.position, nextBody.position) <= 0.01f)
+                Vector3 targetPos = bodyPositions[bodyTargetIndices[i + 1]];
+                float targetDist = Vector3.Distance(body.position, targetPos);
+                float moveDist = contractionSpeed * Time.deltaTime;
+
+                // Exit when body used its full moveDist or reaches the tail
+                while(true) // Use loop incase big frame drop causes a large move distance
                 {
-                    body.position = tailTran.position;
-                    bodiesToHide++;
+                    // If body is going to overshoot target, move to target and find distance to new target
+                    if (moveDist > targetDist)
+                    {
+                        body.position = targetPos;
+                        bodyTargetIndices[i + 1]++;
+                        moveDist -= targetDist;
+                        
+                        // If body reached tail, mark it for removal and stop moving it
+                        if (bodyTargetIndices[i + 1] > numSpawnedBodies) {
+                            if (i > -1) bodiesToHide++; // Don't mark head for removal
+                            break;
+                        }
+
+                        targetPos = bodyPositions[bodyTargetIndices[i + 1]];
+                        targetDist = Vector3.Distance(body.position, targetPos);
+                    }
+                    // Move body towards target and exit loop
+                    else
+                    {
+                        body.position = Vector3.MoveTowards(body.position, targetPos, moveDist);
+                        break; // Move dist is 0, exit
+                    }
                 }
-                nextBody = body;
             }
+
 
             // Hide bodies that have reached the tail
             while (bodiesToHide > 0)
@@ -501,21 +570,20 @@ public class StretchBody : MonoBehaviour
                 // Don't decrement numSpawnedBodies to track how many WERE spawned during stretch
             }
 
-            // Get body behind head
-            if (firstBodyIndex < 0) nextBody = tailTran;
-            else nextBody = bodyTran[0];
-
-            // Move head towards next body, when head reaches tail, end contraction
-            playerTran.position = Vector3.MoveTowards(playerTran.position, nextBody.position, contractionSpeed * Time.deltaTime);
+            // When all bodies are hidden and head reaches tail, end contraction
             if (firstBodyIndex < 0 && 
-                Vector3.Distance(playerTran.position, tailTran.position) <= 0.5f)
+                Vector3.Distance(headTran.position, tailTran.position) <= tailToHeadStartDistance)
             {
                 Vector3 tailForward = new Vector3(tailTran.forward.x, 0f, tailTran.forward.z).normalized;
                 Quaternion tailRot = Quaternion.LookRotation(tailForward);
-                playerTran.position = tailAndBodyTran.position; // Rotation is always 0, orientation handles head rotation
+
+                Vector3 headOffset = tailAndBodyTran.forward * tailToHeadStartDistance;
+                playerTran.position = tailAndBodyTran.position + headOffset; // Rotation is always 0, orientation handles head rotation
+                
                 tailAndBodyTran.SetParent(bodyParent);
                 tailAndBodyTran.SetLocalPositionAndRotation(tailAndBodyStartPos, Quaternion.identity);
                 tailTran.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                
                 orientationTran.rotation = tailRot; // Position is always 0, playerTran handles head position
                 
                 SoundManager.Instance.PlayOneShotSFX(0, 0.1f); // Play doink sound when head reaches tail

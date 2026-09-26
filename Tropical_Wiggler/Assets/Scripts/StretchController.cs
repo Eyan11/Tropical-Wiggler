@@ -31,9 +31,10 @@ public class StretchController : MonoBehaviour
     private float rotationSpeed;
     private Quaternion targetRotation = Quaternion.identity;
 
-    [Header("Retraction Settings")]
+    [Header("Contraction Settings")]
     [SerializeField] private Transform groundCheckTran;
     [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private ParticleSystem splashParticles;
     [SerializeField] private float groundCheckFrequency = 0.1f;
     [SerializeField] private float groundCheckDistance = 0.15f;
     private float groundCheckTimer = 0f;
@@ -42,6 +43,8 @@ public class StretchController : MonoBehaviour
     [Header ("Animation Settings")]
     [SerializeField] private Animator headAnim;
     private int speedHash = Animator.StringToHash("speed");
+    private int bounceForwardHash = Animator.StringToHash("bounce_forward");
+    private int bounceBackwardHash = Animator.StringToHash("bounce_backward");
 
     private enum StretchState
     {
@@ -99,8 +102,18 @@ public class StretchController : MonoBehaviour
 
     private void OnContractionFinished()
     {
+        if (currentStretchState == StretchState.ContractingForward)
+        {
+            headAnim.SetTrigger(bounceForwardHash);
+        }
+        else if (currentStretchState == StretchState.ContractingBackward)
+        {
+            headAnim.SetTrigger(bounceBackwardHash);
+        }
+
         currentStretchState = StretchState.Disabled;
         headAnim.SetFloat(speedHash, 0f);
+        splashParticles.Play();
         OnContractionFinishedEvent?.Invoke();
     }
 

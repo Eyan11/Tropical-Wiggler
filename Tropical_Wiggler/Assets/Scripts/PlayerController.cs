@@ -2,10 +2,11 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(InputManager))]
+[RequireComponent(typeof(StretchController))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Player Movement Settings")]
-    [SerializeField] private float maxSpeed = 4f;
+    [SerializeField] private float maxSpeed = 5f;
     [SerializeField] private float accelerationForce = 15f;
     [SerializeField] private float deaccelerationForce = -10f;
     [Header("Orientation Settings")]
@@ -13,6 +14,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float rotationSpeed = 900;
     [Tooltip("The angle threshold (in degrees) within which the player must be rotated towards target direction before they can move when they are not already moving.")]
     [SerializeField] private float canMoveAngleThreshold = 5f;
+    [SerializeField] private float fallGravity = -55f;
+    private float normalGravity = -9.81f;
     private Transform camTran;
     private Rigidbody body;
     private InputManager input;
@@ -30,6 +33,7 @@ public class PlayerController : MonoBehaviour
         camTran = Camera.main.transform;
         body = GetComponent<Rigidbody>();
         input = GetComponent<InputManager>();
+        normalGravity = Physics.gravity.y;
     }
 
     private void OnEnable()
@@ -56,6 +60,7 @@ public class PlayerController : MonoBehaviour
     {
         isEnabled = false;
         tailAnim.SetFloat(speedHash, 0f);
+        Physics.gravity = new Vector3(0f, normalGravity, 0f);
         // Don't reset head anim speed, it will immediately update in StretchController script
     }
 
@@ -63,6 +68,7 @@ public class PlayerController : MonoBehaviour
     private void OnContractionFinished()
     {
         moveDirection = orientationTran.forward;
+        Physics.gravity = new Vector3(0f, normalGravity, 0f);
         isEnabled = true;
     }
 
@@ -137,6 +143,10 @@ public class PlayerController : MonoBehaviour
             Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * moveDirection;
             body.linearVelocity += acceleration;
         }
+
+        // Use a higher gravity when falling
+        if (body.linearVelocity.y < -0.1f) Physics.gravity = new Vector3(0f, fallGravity, 0f);
+        else Physics.gravity = new Vector3(0f, normalGravity, 0f);
 
         body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
     }

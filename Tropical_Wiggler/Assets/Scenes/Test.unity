@@ -10756,7 +10756,7 @@ MonoBehaviour:
   TargetOffset: {x: 0, y: 0, z: 0}
   TrackerSettings:
     BindingMode: 4
-    PositionDamping: {x: 2.5, y: 0.5, z: 0.5}
+    PositionDamping: {x: 0.75, y: 0.5, z: 0.5}
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
     QuaternionDamping: 1
@@ -10863,7 +10863,7 @@ MonoBehaviour:
     ScreenPosition: {x: 0, y: 0}
     DeadZone:
       Enabled: 0
-      Size: {x: 0.02, y: 0.15}
+      Size: {x: 0.35, y: 0.36}
     HardLimits:
       Enabled: 1
       Size: {x: 0.44, y: 0.5}
@@ -11035,7 +11035,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a076c17fe76165e4f8ed21498b877bf9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineFreeLookModifier
-  Easing: 1
+  Easing: 0
   Modifiers:
   - rid: 4446286981447548995
   references:
@@ -11045,7 +11045,7 @@ MonoBehaviour:
       type: {class: CinemachineFreeLookModifier/PositionDampingModifier, ns: Unity.Cinemachine, asm: Unity.Cinemachine}
       data:
         Damping:
-          Top: {x: 0.05, y: 0.05, z: 0.05}
+          Top: {x: 0.1, y: 0.1, z: 0.1}
           Bottom: {x: 0.3, y: 0.2, z: 0.5}
 --- !u!1 &1441454210
 GameObject:

@@ -25,6 +25,12 @@ public class LazyCamRotation : MonoBehaviour
 
     private void FixedUpdate() // Using fixed update since that is when movement is calculated
     {
+        LazyCameraRotation();
+    }
+
+    // Rotates camera towards player velocity direction
+    private void LazyCameraRotation()
+    {
         Vector3 velocity = playerRigidbody.linearVelocity;
         velocity.y = 0f;
         float speed = velocity.magnitude;

@@ -144,28 +144,29 @@ public class StretchBody : MonoBehaviour
     {
         Transform body;
         Transform nextBody = headTran;
+        Vector3 direction;
+        Quaternion targetRotation;
 
         // Rotate all bodies towards the body in front of it
         for (int i = 0; i < numSpawnedBodies; i++)
         {
             body = bodyTran[i];
-            Vector3 direction = nextBody.position - body.position;
-            Quaternion targetRotation = Quaternion.LookRotation(direction); // Rotation towards body in front of it
+            direction = nextBody.position - body.position;
+            targetRotation = Quaternion.LookRotation(direction); // Rotation towards body in front of it
             body.rotation = Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             nextBody = body;
         }
 
-        // Rotate tail towards the last body
-        if (numSpawnedBodies > 0)
-        {
-            Vector3 direction = bodyTran[numSpawnedBodies - 1].position - tailTran.position;
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-            tailTran.rotation = Quaternion.Slerp(tailTran.rotation, targetRotation, tailRotationSpeed * Time.deltaTime);
-            
-            // Update tail animation speed based onsize of the angle between current and target rotation
-            float angle = Quaternion.Angle(tailTran.rotation, targetRotation);
-            tailAnim.SetFloat(speedHash, Mathf.Min(0.5f, angle / 15f)); // Cap at 0.5 speed and slow down to 0 when angle is less than 15 degrees
-        }
+        // Rotate tail towards the last body (or head when none have spawned)
+        if (numSpawnedBodies > 0) direction = bodyTran[numSpawnedBodies - 1].position - tailTran.position;
+        else direction = headTran.position - tailTran.position;
+
+        targetRotation = Quaternion.LookRotation(direction);
+        tailTran.rotation = Quaternion.Slerp(tailTran.rotation, targetRotation, tailRotationSpeed * Time.deltaTime);
+        
+        // Update tail animation speed based onsize of the angle between current and target rotation
+        float angle = Quaternion.Angle(tailTran.rotation, targetRotation);
+        tailAnim.SetFloat(speedHash, Mathf.Min(0.5f, angle / 15f)); // Cap at 0.5 speed and slow down to 0 when angle is less than 15 degrees
     }
 
     // Updates curDistance by setting it to the average distance between all body spheres, clamped to min and max distance
@@ -371,24 +372,24 @@ public class StretchBody : MonoBehaviour
         return distance > maxDistance + maxStretchDistanceThreshold;
     }
 
-    // Returns the forward vector of the body sphere right behind the head
+    // Returns the forward vector of the body sphere right behind the head, if no body is spawned yet it returns the tail's forward vector
     public Vector3 GetFrontBodyForward()
     {
-        if (numSpawnedBodies < 1) return Vector3.zero;
+        if (numSpawnedBodies < 1) return tailTran.forward;
         return bodyTran[0].forward;
     }
 
-    // Returns the right vector of the body sphere right behind the head
+    // Returns the right vector of the body sphere right behind the head, if no body is spawned yet it returns the tail's right vector
     public Vector3 GetFrontBodyRight()
     {
-        if (numSpawnedBodies < 1) return Vector3.zero;
+        if (numSpawnedBodies < 1) return tailTran.right;
         return bodyTran[0].right;
     }
 
-    // Returns the rotation of the body sphere right behind the head
+    // Returns the rotation of the body sphere right behind the head, if no body is spawned yet it returns the tail's rotation
     public Quaternion GetFrontBodyRotation()
     {
-        if (numSpawnedBodies < 1) return Quaternion.identity;
+        if (numSpawnedBodies < 1) return tailTran.rotation;
         return bodyTran[0].rotation;
     }
 

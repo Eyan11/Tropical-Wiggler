@@ -2001,7 +2001,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   accelerationForce: 50
   deaccelerationForce: -15
-  maxStretchOpposingForce: 30
+  maxStretchOpposingForce: 60
   orientationTran: {fileID: 1384842895}
   maxRotationSpeed: 200
   rotationAcceleration: 200

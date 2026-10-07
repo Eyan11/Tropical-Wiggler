@@ -1,7 +1,7 @@
 using UnityEngine;
 using Unity.Cinemachine;
 
-public class LazyCamRotation : MonoBehaviour
+public class LookAheadCamera : MonoBehaviour
 {
     [SerializeField] private Rigidbody playerRigidbody;
     [SerializeField] private float maxRotationSpeed = 0.6f;
@@ -24,6 +24,12 @@ public class LazyCamRotation : MonoBehaviour
     }
 
     private void FixedUpdate() // Using fixed update since that is when movement is calculated
+    {
+        LookAheadMovement();
+    }
+
+    // Rotates camera towards player velocity direction
+    private void LookAheadMovement()
     {
         Vector3 velocity = playerRigidbody.linearVelocity;
         velocity.y = 0f;

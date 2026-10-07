@@ -35,10 +35,9 @@ public class StretchController : MonoBehaviour
     [SerializeField] private Transform groundCheckTran;
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private ParticleSystem splashParticles;
-    [SerializeField] private float groundCheckFrequency = 0.1f;
     [SerializeField] private float groundCheckDistance = 0.15f;
-    private float groundCheckTimer = 0f;
-    private bool isGrounded = true;
+    [SerializeField] private float slopeCheckDistance = 0.03f;
+    private RaycastHit slopeHit;
 
     [Header ("Animation Settings")]
     [SerializeField] private Animator headAnim;
@@ -76,9 +75,12 @@ public class StretchController : MonoBehaviour
 
     private void OnStretchInputChanged(bool isStretchInputDown)
     {
+        bool isGrounded = IsGrounded();
+
         // Player is NOT stretching and presses stretch input
         if (isStretchInputDown && currentStretchState == StretchState.Disabled)
         {
+            body.useGravity = false; // Disable gravity
             currentStretchState = StretchState.Stretching;
             OnStretchStartedEvent?.Invoke();
         }
@@ -111,6 +113,7 @@ public class StretchController : MonoBehaviour
             headAnim.SetTrigger(bounceBackwardHash);
         }
 
+        body.useGravity = true; // Re-enable gravity
         currentStretchState = StretchState.Disabled;
         headAnim.SetFloat(speedHash, 0f);
         splashParticles.Play();
@@ -124,14 +127,6 @@ public class StretchController : MonoBehaviour
     {
         if (currentStretchState != StretchState.Stretching) return;
         RotateTowardsInputDirection();
-
-        // Handle ground check
-        groundCheckTimer += Time.deltaTime;
-        if (groundCheckTimer >= groundCheckFrequency)
-        {
-            isGrounded = IsGrounded();
-            groundCheckTimer = 0f;
-        }
     }
 
     private void FixedUpdate()
@@ -194,14 +189,22 @@ public class StretchController : MonoBehaviour
     //  Limits movement when at max stretch distance and deaccelerates when no input is given.
     private void MovePlayer()
     {
+        bool onSlope = OnUpwardsSlope();
+
+        // If on slope, add y direction of slope to the moveDirection
+        if (input.GetCurMoveInput() != Vector2.zero && onSlope)
+        {
+            moveDirection = Vector3.ProjectOnPlane(moveDirection, slopeHit.normal).normalized;
+        }
+
+
         // Deaaccelerate when no input until reaching speed of 0
         if (input.GetCurMoveInput() == Vector2.zero)
         {
-            Vector2 deacceleration = deaccelerationForce * Time.fixedDeltaTime * new Vector2(body.linearVelocity.x, body.linearVelocity.z);
-            body.linearVelocity += new Vector3(deacceleration.x, 0f, deacceleration.y);
+            body.linearVelocity = deaccelerationForce * Time.fixedDeltaTime * body.linearVelocity;
 
             if (body.linearVelocity.magnitude < 0.1f)
-                body.linearVelocity = new Vector3(0f, body.linearVelocity.y, 0f);
+                body.linearVelocity = Vector3.zero;
         }
         // Prevent player from going past max stretch distance
         else if (stretchBody.IsMaxStretchReached())
@@ -226,7 +229,7 @@ public class StretchController : MonoBehaviour
             {
                 float rightAmount = Vector3.Dot(body.linearVelocity, right);
                 Vector3 newVel = rightAmount * right;
-                body.linearVelocity = new Vector3(newVel.x, body.linearVelocity.y, newVel.z);
+                body.linearVelocity = new Vector3(newVel.x, 0f, newVel.z);
             }
 
             Vector3 acceleration = accelerationForce * Time.fixedDeltaTime * direction;
@@ -248,13 +251,28 @@ public class StretchController : MonoBehaviour
             body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, maxSpeed);
         }
 
+        // Remove y velocity unless on slope
+        if (!onSlope) body.linearVelocity = new Vector3(body.linearVelocity.x, 0f, body.linearVelocity.z); // Prevent player from moving up slopes when not on a slope
+
         // Update animation speed based on current velocity
         headAnim.SetFloat(speedHash, body.linearVelocity.magnitude / maxSpeed);
     }
 
-    // Returns true if head is grounded
+    // Returns true if player is touching the ground
     private bool IsGrounded()
     {
         return Physics.Raycast(groundCheckTran.position, Vector3.down, groundCheckDistance, groundLayer);
     }
+
+    // Returns true if player collision with floor is at an angle between 2 and 45 degrees
+    private bool OnUpwardsSlope()
+    {
+        if (Physics.Raycast(groundCheckTran.position, Vector3.down, out slopeHit, slopeCheckDistance, groundLayer))
+        {
+            float angle = Vector3.SignedAngle(orientationTran.forward, slopeHit.normal, Vector3.up);
+            return angle > 92f && angle <= 135f; // 2-45 degree upwards slope
+        }
+        return false;
+    }
+
 }

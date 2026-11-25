@@ -11,6 +11,7 @@ public class InputManager : MonoBehaviour
 
     public event Action<bool> OnStretchInputChanged;
     public event Action OnMoveInputCanceled;
+    public event Action OnResetInput;
 
 
     private void Awake()
@@ -30,6 +31,8 @@ public class InputManager : MonoBehaviour
         
         inputMap.Player.Stretch.performed += OnStretch;
         inputMap.Player.Stretch.canceled += OnStretch;
+
+        inputMap.Player.Reset.performed += OnReset;
 
         // Look input is hooked up to cinemachine directly
     }
@@ -74,6 +77,11 @@ public class InputManager : MonoBehaviour
         else if (context.canceled) isStretching = false;
 
         OnStretchInputChanged?.Invoke(isStretching);
+    }
+
+    private void OnReset(InputAction.CallbackContext context)
+    {
+        OnResetInput?.Invoke();
     }
 
 

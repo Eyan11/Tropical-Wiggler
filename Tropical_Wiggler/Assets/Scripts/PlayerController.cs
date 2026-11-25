@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(InputManager))]
@@ -39,6 +40,7 @@ public class PlayerController : MonoBehaviour
     private void OnEnable()
     {
         input.OnMoveInputCanceled += OnMoveInputCanceled;
+        input.OnResetInput += OnReset;
         StretchController.OnStretchStartedEvent += OnStretchStarted;
         StretchController.OnContractionFinishedEvent += OnContractionFinished;
     }
@@ -46,13 +48,22 @@ public class PlayerController : MonoBehaviour
     private void OnDisable()
     {
         input.OnMoveInputCanceled -= OnMoveInputCanceled;
+        input.OnResetInput -= OnReset;
         StretchController.OnStretchStartedEvent -= OnStretchStarted;
         StretchController.OnContractionFinishedEvent -= OnContractionFinished;
     }
 
+    // Sets isMoving to false, which makes player rotate towards input direction before allowing movement
     private void OnMoveInputCanceled()
     {
-        isMoving = false; // Make player rotate towards input direction before allowing movement
+        isMoving = false;
+    }
+
+    // Reloads current scene
+    private void OnReset()
+    {
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        Physics.gravity = new Vector3(0f, normalGravity, 0f);
     }
 
     // Disables movement when stretching starts

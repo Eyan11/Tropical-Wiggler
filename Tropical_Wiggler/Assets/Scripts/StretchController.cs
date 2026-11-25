@@ -77,8 +77,8 @@ public class StretchController : MonoBehaviour
     {
         bool isGrounded = IsGrounded();
 
-        // Player is NOT stretching and presses stretch input
-        if (isStretchInputDown && currentStretchState == StretchState.Disabled)
+        // Player is grounded and NOT stretching and presses stretch input
+        if (isStretchInputDown && isGrounded &&currentStretchState == StretchState.Disabled)
         {
             body.useGravity = false; // Disable gravity
             currentStretchState = StretchState.Stretching;
